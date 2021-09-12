@@ -714,7 +714,12 @@ namespace ulua
 	{
 		stack_reference table = {};
 		Key key = {};
-		explicit inline table_proxy( stack_reference table, Key key ) : table( std::move( table ) ), key( std::move( key ) ) {}
+		explicit inline table_proxy( stack_reference&& table, Key key ) : table( std::move( table ) ), key( std::move( key ) ) {}
+		explicit inline table_proxy( const stack_reference& ptable, Key key ) : key( std::move( key ) ) 
+		{
+			ptable.push();
+			table = stack_reference{ ptable.state(), stack::top_t{} };
+		}
 
 		// Ref getter.
 		//
@@ -772,8 +777,10 @@ namespace ulua
 
 		// Lazy use.
 		//
-		inline auto operator[]( const char* name ) { return table_proxy<const char*, false>( *this, name ); }
-		inline auto operator[]( size_t idx ) { return table_proxy<size_t, false>( *this, idx ); }
+		inline auto operator[]( const char* name ) & { return table_proxy<const char*, false>( *this, name ); }
+		inline auto operator[]( size_t idx ) & { return table_proxy<size_t, false>( *this, idx ); }
+		inline auto operator[]( const char* name ) && { return table_proxy<const char*, false>( std::move( *this ), name ); }
+		inline auto operator[]( size_t idx ) && { return table_proxy<size_t, false>( std::move( *this ), idx ); }
 		template<typename... Tx> inline function_result operator()( Tx&&... args ) { Ref::push(); return detail::pcall( Ref::state(), std::forward<Tx>( args )... ); }
 	};
 	using object =       basic_object<registry_reference>;
@@ -843,12 +850,20 @@ namespace ulua
 		inline iterator begin() const { return { *this }; }
 		inline iterator end() const { return {}; }
 
-		inline auto at( const char* name ) { return table_proxy<const char*, false>{ *this, name }; }
-		inline auto at( size_t idx ) { return table_proxy<size_t, false>{ *this, idx }; }
-		inline auto at( const char* name, raw_t ) { return table_proxy<const char*, true>{ *this, name }; }
-		inline auto at( size_t idx, raw_t ) { return table_proxy<size_t, true>{ *this, idx }; }
-		inline auto operator[]( const char* name ) { return at( name ); }
-		inline auto operator[]( size_t idx ) { return at( idx ); }
+		inline auto at( const char* name ) & { return table_proxy<const char*, false>{ *this, name }; }
+		inline auto at( size_t idx ) & { return table_proxy<size_t, false>{ *this, idx }; }
+		inline auto at( const char* name, raw_t ) & { return table_proxy<const char*, true>{ *this, name }; }
+		inline auto at( size_t idx, raw_t ) & { return table_proxy<size_t, true>{ *this, idx }; }
+
+		inline auto at( const char* name ) && { return table_proxy<const char*, false>{ std::move( *this ), name }; }
+		inline auto at( size_t idx ) && { return table_proxy<size_t, false>{ std::move( *this ), idx }; }
+		inline auto at( const char* name, raw_t ) && { return table_proxy<const char*, true>{ std::move( *this ), name }; }
+		inline auto at( size_t idx, raw_t ) && { return table_proxy<size_t, true>{ std::move( *this ), idx }; }
+
+		inline auto operator[]( const char* name ) & { return at( name ); }
+		inline auto operator[]( size_t idx ) & { return at( idx ); }
+		inline auto operator[]( const char* name ) && { return at( name ); }
+		inline auto operator[]( size_t idx ) && { return at( idx ); }
 	};
 	using table =       basic_table<registry_reference>;
 	using stack_table = basic_table<stack_reference>;
