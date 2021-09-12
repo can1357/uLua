@@ -932,6 +932,17 @@ namespace ulua
 			lua_createtable( L, num_arr, num_rec );
 			return table{ registry_reference{ L, stack::top_t{} } };
 		}
+
+		// Creates a metatable.
+		//
+		inline std::pair<table, bool> make_metatable( const char* name )
+		{
+			bool inserted = luaL_newmetatable( L, name ) == 1;
+			return std::pair{ table{ registry_reference{ L, stack::top_t{} } }, inserted };
+		}
+
+		// References globals.
+		//
 		inline stack_table globals() { return stack_table{ stack_reference{ L, LUA_GLOBALSINDEX } }; }
 		inline auto operator[]( const char* name ) { return table_proxy<const char*, false>( stack_reference{ L, LUA_GLOBALSINDEX }, name ); }
 
@@ -995,5 +1006,14 @@ namespace ulua
 			lua_gc( L, LUA_GCCOLLECT, 0 );
 		}
 	};
+
+	// Sets the metatable for a given object.
+	//
+	template<Reference Ref>
+	inline static void set_metatable( const stack_reference& dst, const Ref& table )
+	{
+		table.push();
+		lua_setmetatable( dst.state(), dst.index() );
+	}
 };
 #pragma pack(pop)
