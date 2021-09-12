@@ -453,6 +453,11 @@ namespace ulua
 				return result;
 			}
 		}
+		template<typename... Tx> requires( sizeof...( Tx ) > 1 )
+		inline auto pop( lua_State* L )
+		{
+			return std::tuple{ pop<Tx>( L )... };
+		}
 		template<typename T>
 		inline auto clone( lua_State* L )
 		{
