@@ -930,10 +930,11 @@ namespace ulua
 	struct state
 	{
 		lua_State* L;
+		bool owning;
 
-		inline state( lua_State* state ) : L( state ) {}
-		inline state() : state( luaL_newstate() ) {}
-		inline ~state() { lua_close( L ); }
+		inline state( lua_State* state ) : L( state ), owning( false ) {}
+		inline state() : L( luaL_newstate() ), owning( true ) {}
+		inline ~state() { if ( owning ) lua_close( L ); }
 		operator lua_State* ( ) const { return L; }
 
 		// Sets the panic function.
