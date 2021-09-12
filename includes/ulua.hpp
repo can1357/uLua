@@ -404,7 +404,7 @@ namespace ulua
 	{
 		inline static void push( lua_State* L, const R& ref ) { ref.push(); }
 		inline static bool check( lua_State* L, int idx ) { return true; }
-		//inline static R get( lua_State* L, int idx ) { R tmp{}; tmp.assign( stack_reference{ L, idx, weak_t{} } ); return tmp; }
+		inline static R get( lua_State* L, int idx ) requires R::is_direct { return R{ L, idx, weak_t{} }; }
 		inline static R pop( lua_State* L ) { return R{ L, stack::top_t{} }; }
 	};
 	template<TypedReference R>
@@ -412,12 +412,14 @@ namespace ulua
 	{
 		inline static void push( lua_State* L, const R& ref ) { ref.push(); }
 		inline static bool check( lua_State* L, int idx ) { return std::decay_t<R>::check( stack_reference{ L, idx, weak_t{} } ); }
-		//inline static R get( lua_State* L, int idx ) 
-		//{ 
-		//	if ( !check( L, idx ) )
-		//		detail::type_error( L, idx, "Lua object" );
-		//	R tmp{}; tmp.assign( stack_reference{ L, idx, weak_t{} } ); return tmp; 
-		//}
+
+		inline static R get( lua_State* L, int idx ) requires R::is_direct
+		{ 
+			if ( !check( L, idx ) )
+				detail::type_error( L, idx, "Lua object" );
+			return R{ L, idx, weak_t{} };
+		}
+		
 		inline static R pop( lua_State* L )
 		{
 			if ( !check( L, stack::top_t{} ) )
@@ -440,7 +442,7 @@ namespace ulua
 			push( L, std::forward<Tx>( rest )... );
 		}
 		template<typename T>
-		inline auto pop( lua_State* L )
+		inline decltype( auto ) pop( lua_State* L )
 		{
 			if constexpr ( Poppable<T> )
 			{
@@ -448,15 +450,15 @@ namespace ulua
 			}
 			else
 			{
-				auto result = type_traits<T>::get( L, top_t{} );
+				decltype( auto ) result = type_traits<T>::get( L, top_t{} );
 				pop_n( L, 1 );
 				return result;
 			}
 		}
 		template<typename... Tx> requires( sizeof...( Tx ) > 1 )
-		inline auto pop( lua_State* L )
+		inline auto pop( lua_State* L ) -> std::tuple<decltype( pop<Tx>( std::declval<lua_State*>() ) )...>
 		{
-			return std::tuple{ pop<Tx>( L )... };
+			return { pop<Tx>( L )... };
 		}
 		template<typename T>
 		inline auto clone( lua_State* L )
@@ -470,7 +472,7 @@ namespace ulua
 			return type_traits<T>::check( L, i );
 		}
 		template<typename T>
-		inline auto get( lua_State* L, slot i )
+		inline decltype( auto ) get( lua_State* L, slot i )
 		{
 			return type_traits<T>::get( L, i );
 		}
@@ -480,7 +482,7 @@ namespace ulua
 			return stack::check<T>( ref.state(), ref.slot() ); 
 		}
 		template<typename T> 
-		inline auto get( const stack_reference& ref ) 
+		inline decltype( auto ) get( const stack_reference& ref )
 		{ 
 			return stack::get<T>( ref.state(), ref.slot() ); 
 		}
@@ -493,10 +495,10 @@ namespace ulua
 			return res;
 		}
 		template<typename T> 
-		inline auto get( const registry_reference& ref ) 
+		inline decltype( auto ) get( const registry_reference& ref )
 		{
 			ref.push();
-			auto res = stack::get<T>( ref.state(), top_t{} );
+			decltype( auto ) res = stack::get<T>( ref.state(), top_t{} );
 			stack::pop_n( ref.state(), 1 );
 			return res;
 		}
@@ -627,7 +629,7 @@ namespace ulua
 		// Value getter.
 		//
 		template<typename T> bool is( size_t i = 0 ) const { return std::is_same_v<T, nil_t> || ( i < size() && stack::check<T>( L, first + i ) ); }
-		template<typename T> auto as( size_t i = 0 ) const 
+		template<typename T> decltype( auto ) as( size_t i = 0 ) const 
 		{ 
 			if constexpr ( std::is_same_v<T, nil_t> )
 				return T{};
@@ -736,7 +738,7 @@ namespace ulua
 
 		// Generic casts.
 		//
-		template<typename T> inline auto as() const { push(); return stack::pop<T>( table.state() ); }
+		template<typename T> inline decltype( auto ) as() const { push(); return stack::pop<T>( table.state() ); }
 		template<typename T> inline bool is() const { return stack::check<T>( get_ref() ); }
 		template<typename T> inline operator T() const { push(); return stack::pop<T>( table.state() ); }
 		inline std::string to_string() const { return detail::to_string( get_ref() ); }
@@ -770,7 +772,7 @@ namespace ulua
 		
 		// Generic casts.
 		//
-		template<typename T> inline auto as() const { return stack::get<T>( *this ); }
+		template<typename T> inline decltype( auto ) as() const { return stack::get<T>( *this ); }
 		template<typename T> inline bool is() const { return stack::check<T>( *this ); }
 		template<typename T> inline operator T() const { return stack::get<T>( *this ); }
 		inline std::string to_string() const { return detail::to_string( *this ); }
