@@ -1020,7 +1020,7 @@ namespace ulua
 	template<typename T = table>
 	inline static std::optional<T> get_metatable( const stack_reference& obj )
 	{
-		if ( !lua_getmetatable( obj.state(), obj.index() ) )
+		if ( !lua_getmetatable( obj.state(), obj.slot() ) )
 			return std::nullopt;
 		else
 			return T{ obj.state(), stack::top_t{} };
@@ -1032,7 +1032,7 @@ namespace ulua
 	inline static void set_metatable( const stack_reference& dst, const Ref& table )
 	{
 		table.push();
-		lua_setmetatable( dst.state(), dst.index() );
+		lua_setmetatable( dst.state(), dst.slot() );
 	}
 };
 #pragma pack(pop)
