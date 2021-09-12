@@ -935,10 +935,18 @@ namespace ulua
 
 		// Creates a metatable.
 		//
-		inline std::pair<table, bool> make_metatable( const char* name )
+		template<typename T = table>
+		inline std::pair<T, bool> make_metatable( const char* name )
 		{
 			bool inserted = luaL_newmetatable( L, name ) == 1;
-			return std::pair{ table{ registry_reference{ L, stack::top_t{} } }, inserted };
+			return std::pair{ T{ L, stack::top_t{} }, inserted };
+		}
+		
+		template<typename T = stack_table>
+		inline T get_metatable( const char* name )
+		{
+			luaL_getmetatable( L, name );
+			return T{ L, stack::top_t{} };
 		}
 
 		// References globals.
@@ -1006,6 +1014,17 @@ namespace ulua
 			lua_gc( L, LUA_GCCOLLECT, 0 );
 		}
 	};
+
+	// Gets the metatable for a given object.
+	//
+	template<typename T = table>
+	inline static std::optional<T> get_metatable( const stack_reference& obj )
+	{
+		if ( !lua_getmetatable( obj.state(), obj.index() ) )
+			return std::nullopt;
+		else
+			return T{ obj.state(), stack::top_t{} };
+	}
 
 	// Sets the metatable for a given object.
 	//
