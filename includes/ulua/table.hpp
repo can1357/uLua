@@ -7,6 +7,8 @@ namespace ulua
 {
 	namespace detail
 	{
+		struct new_table_tag_t {};
+
 		// Table proxy.
 		//
 		template<typename Key, bool Raw>
@@ -34,7 +36,20 @@ namespace ulua
 				stack::push( table.state(), std::forward<T>( value ) );
 				stack::set_field( table.state(), table.slot(), key, std::bool_constant<Raw>{} );
 			}
-			template<typename T> inline table_proxy& operator=( T&& value ) { set<T>( std::forward<T>( value ) ); return *this; }
+			template<typename T = const new_table_tag_t&>
+			inline table_proxy& operator=( T&& value ) 
+			{ 
+				if constexpr ( std::is_same_v<std::decay_t<T>, new_table_tag_t>>
+				{
+					stack::create_table( table.state() );
+					stack::set_field( table.state(), table.slot(), key, std::bool_constant<Raw>{} );
+				}
+				else
+				{
+					set<T>( std::forward<T>( value ) );
+					return *this;
+				}
+			}
 		};
 		template<bool Raw, typename Key>
 		static table_proxy<Key, Raw> make_table_proxy( lua_State* L, stack::slot slot, bool owning, Key&& key ) { return table_proxy<Key, Raw>{ L, slot, owning, std::forward<Key>( key ) }; }
@@ -93,14 +108,10 @@ namespace ulua
 	template<Reference Ref>
 	struct basic_table : Ref, detail::lazy<basic_table<Ref>>
 	{
-		// TODO: Checks?
-
 		inline basic_table() {}
 		template<typename... Tx>
 		explicit inline basic_table( Tx&&... ref ) : Ref( std::forward<Tx>( ref )... ) {}
 
-		// TODO: Length
-		//
 		inline iterator begin() const { return stack_reference{ *this }; }
 		inline iterator end() const { return {}; }
 	};
