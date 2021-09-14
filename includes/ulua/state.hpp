@@ -27,23 +27,26 @@ namespace ulua
 
 	// Load result.
 	//
-	struct load_result
+	template<Reference Ref = registry_reference>
+	struct load_result : Ref, detail::lazy_invocable<load_result<Ref>>
 	{
-		registry_reference ref;
-		int loadfile_result;
-		
-		inline bool is_error() const { return loadfile_result != 0; }
-		inline bool is_success() const { return loadfile_result == 0; }
-		inline void assert() const { if ( is_error() ) detail::error( ref.state(), error() ); }
-		inline explicit operator bool() const { return is_success(); }
-
-		const char* error() const { ref.push(); return stack::pop<const char*>( ref.state() ); }
+		int retval;
 
 		template<typename... Tx>
-		function_result operator()( Tx&&... args ) const
+		explicit load_result( int retval, Tx&&... args ) : Ref( std::forward<Tx>( args )... ), retval( retval ) {}
+		
+		inline bool is_error() const { return retval != 0; }
+		inline bool is_success() const { return retval == 0; }
+		inline void assert() const { if ( is_error() ) detail::error( Ref::state(), error() ); }
+		inline explicit operator bool() const { return is_success(); }
+		const char* error() const { Ref::push(); return stack::pop<const char*>( Ref::state() ); }
+
+		std::string to_string() const 
 		{
-			ref.push(); 
-			return detail::pcall( ref.state(), std::forward<Tx>( args )... );
+			if ( is_success() )
+				return "<script>";
+			else
+				return error();
 		}
 	};
 
@@ -106,15 +109,15 @@ namespace ulua
 
 		// Parses a script and returns the chunk as a function.
 		// 
-		inline load_result load_file( const char* path )
+		template<Reference R = stack_reference>
+		inline load_result<R> load_file( const char* path )
 		{
-			int r = luaL_loadfile( L, path );
-			return { registry_reference{ L, stack::top_t{} }, r };
+			return load_result<R>{ luaL_loadfile( L, path ), L, stack::top_t{} };
 		}
-		inline load_result load( std::string_view script, const char* name = "" )
+		template<Reference R = stack_reference>
+		inline load_result<R> load( std::string_view script, const char* name = "" )
 		{
-			int r = luaL_loadbuffer( L, script.data(), script.size(), name );
-			return { registry_reference{ L, stack::top_t{} }, r };
+			return load_result<R>{ luaL_loadbuffer( L, script.data(), script.size(), name ), L, stack::top_t{} };
 		}
 
 		// Runs the given script and returns any parsing errors.
@@ -124,9 +127,9 @@ namespace ulua
 			auto result = load( path );
 			if ( !result )
 			{
-				stack::push( L, result.ref );
+				stack::push( L, result );
 				stack::slot top = stack::top( L );
-				return function_result{ L, top, top + 1, result.loadfile_result };
+				return function_result{ L, top, top + 1, result.retval };
 			}
 			return result();
 		}
@@ -135,9 +138,9 @@ namespace ulua
 			auto result = load( script, name );
 			if ( !result )
 			{
-				stack::push( L, result.ref );
+				stack::push( L, result );
 				stack::slot top = stack::top( L );
-				return function_result{ L, top, top + 1, result.loadfile_result };
+				return function_result{ L, top, top + 1, result.retval };
 			}
 			return result();
 		}

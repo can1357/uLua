@@ -7,6 +7,11 @@ extern "C" {
 #include <tuple>
 #include <algorithm>
 #include <utility>
+
+#ifndef __has_builtin
+	#define __has_builtin(...) 0
+#endif
+
 namespace ulua::detail
 {
 	// Constant tag.
@@ -127,5 +132,26 @@ namespace ulua::detail
 		printf( "<< type error (%d): %s >>\n", arg, type );
 		luaL_typerror( L, arg, type );
 		unreachable();
+	}
+
+	// Compiler specifics.
+	//
+	inline constexpr void assume_true( bool condition ) 
+	{  
+#if __has_builtin(__builtin_assume)
+		__builtin_assume( condition );
+#endif
+	}
+	template<size_t N>
+	inline bool ccmp( const void* a, const void* b )
+	{
+#if __has_builtin(__builtin_bcmp)
+		return !__builtin_bcmp( a, b, N );
+#elif __has_builtin(__builtin_memcmp)
+		return !__builtin_memcmp( a, b, N );
+#else
+		using T = std::array<uint8_t, N>;
+		return *( const T* ) a == *( const T* ) b;
+#endif
 	}
 };

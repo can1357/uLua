@@ -13,20 +13,20 @@ namespace ulua
 		lua_State* L = nullptr;
 		stack::slot first = 0;
 		stack::slot last = 0;
-		int pcall_result = 0;
+		int retval = 0;
 
 		// Construction by stack slice, no copy allowed.
 		//
 		inline function_result() {}
-		explicit inline function_result( lua_State* L, stack::slot first, stack::slot last, int pcall_result ) : L( L ), first( first ), last( last ), pcall_result( pcall_result ) {}
+		explicit inline function_result( lua_State* L, stack::slot first, stack::slot last, int retval ) : L( L ), first( first ), last( last ), retval( retval ) {}
 		inline function_result( const function_result& ) = delete;
 		inline function_result& operator=( const function_result& ) = delete;
 
 		// State checks.
 		//
 		inline size_t size() const { return is_error() ? 0 : size_t( last - first ); }
-		inline bool is_error() const { return pcall_result != 0; }
-		inline bool is_success() const { return pcall_result == 0; }
+		inline bool is_error() const { return retval != 0; }
+		inline bool is_success() const { return retval == 0; }
 		inline void assert() const { if ( is_error() ) detail::error( L, error() ); }
 		inline explicit operator bool() const { return is_success(); }
 

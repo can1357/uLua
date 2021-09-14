@@ -11,7 +11,7 @@ namespace ulua
 	namespace detail
 	{
 		template<typename T>
-		concept TableKey = std::is_convertible_v<T, const char*> || std::is_convertible_v<T, size_t>;
+		concept TableKey = std::is_convertible_v<T, const char*> || std::is_convertible_v<T, int>;
 		template<TableKey Key, bool Raw>
 		struct table_proxy;
 		template<typename... Tx>

@@ -5,51 +5,8 @@
 
 namespace ulua
 {
-	using raw_t = std::bool_constant<true>;
 	namespace detail
 	{
-		// PUSH(Table[K]).
-		//
-		inline void get_table( const stack_reference& ref, const char* field, std::bool_constant<false> = {} )
-		{
-			lua_getfield( ref.state(), ref.slot(), field );
-		}
-		inline void get_table( const stack_reference& ref, int n, std::bool_constant<false> = {} )
-		{
-			stack::push( ref.state(), n );
-			lua_gettable( ref.state(), ref.slot() );
-		}
-		inline void get_table( const stack_reference& ref, const char* field, raw_t )
-		{
-			stack::push( ref.state(), field );
-			lua_rawget( ref.state(), ref.slot() );
-		}
-		inline void get_table( const stack_reference& ref, int n, raw_t )
-		{
-			lua_rawgeti( ref.state(), ref.slot(), n );
-		}
-
-		// Table[K] = POP().
-		//
-		inline void put_table( const stack_reference& ref, const char* field, std::bool_constant<false> = {} )
-		{
-			lua_setfield( ref.state(), ref.slot(), field );
-		}
-		inline void put_table( const stack_reference& ref, int n, std::bool_constant<false> = {} )
-		{
-			stack::push( ref.state(), n );
-			lua_settable( ref.state(), ref.slot() );
-		}
-		inline void put_table( const stack_reference& ref, const char* field, raw_t )
-		{
-			stack::push( ref.state(), field );
-			lua_rawset( ref.state(), ref.slot() );
-		}
-		inline void put_table( const stack_reference& ref, int n, raw_t )
-		{
-			lua_rawseti( ref.state(), ref.slot(), n );
-		}
-
 		// Table proxy.
 		//
 		template<TableKey Key, bool Raw>
@@ -65,7 +22,7 @@ namespace ulua
 			//
 			inline void push() const
 			{
-				get_table( table, key, std::bool_constant<Raw>{} );
+				stack::get_field( table.state(), table.slot(), key, std::bool_constant<Raw>{} );
 			}
 			inline lua_State* state() const { return table.state(); }
 
@@ -75,7 +32,7 @@ namespace ulua
 			inline void set( T&& value )
 			{
 				stack::push<T>( table.state(), std::forward<T>( value ) );
-				put_table( table, key, std::bool_constant<Raw>{} );
+				stack::set_field( table.state(), table.slot(), key, std::bool_constant<Raw>{} );
 			}
 			template<typename T> inline table_proxy& operator=( T&& value ) { set<T>( std::forward<T>( value ) ); return *this; }
 		};

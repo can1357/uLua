@@ -2,28 +2,48 @@
 #include "common.hpp"
 #include "lua_types.hpp"
 
+namespace ulua { using raw_t = std::bool_constant<true>; };
+
 namespace ulua::stack
 {
 	using slot = int;
 	struct top_t { inline operator slot() const { return -1; } };
 	
-	inline slot top( lua_State* L ) { return ( slot ) ( L->top - L->base ); }
+	// Gets the top of the stack.
+	//
+	inline slot top( lua_State* L ) { slot s = ( slot ) ( L->top - L->base ); detail::assume_true( s >= 0 ); return s; }
+	
+	// Sets the top of the stack.
+	//
 	inline void set_top( lua_State* L, slot i ) { lua_settop( L, i ); }
+
+	// Pops a given number of items from the top of the stack.
+	//
 	inline void pop_n( lua_State* L, slot i ) { L->top -= i; }
-	inline value_type type( lua_State* L, slot i ) { return ( value_type ) lua_type( L, i ); }
+
+	// Removes a number of stack elements at the given position.
+	//
+	inline void remove( lua_State* L, slot i, size_t n = 1 )
+	{
+		while ( n )
+			lua_remove( L, i + --n );
+	}
+
+	// Pushes a given item on the stack to the top of the stack.
+	//
 	inline void copy( lua_State* L, slot i ) { lua_pushvalue( L, i ); }
 	
+	// Slot traits.
+	//
 	inline constexpr bool is_relative( slot i ) { return i < 0 && i > LUA_REGISTRYINDEX; }
 	inline constexpr bool is_global( slot i ) { return i < LUA_REGISTRYINDEX; }
 	inline constexpr bool is_absolute( slot i ) { return i > 0; }
 	
+	// Conversion between absolute and relative slot indexing.
+	//
 	inline slot abs( lua_State* L, slot i ) { return is_relative( i ) ? top( L ) + 1 + i : i; }
 	inline slot rel( lua_State* L, slot i ) { return is_relative( i ) ? i : i - ( top( L ) + 1 ); }
-	inline void remove( lua_State* L, slot i, size_t n = 1 ) 
-	{ 
-		while( n )
-			lua_remove( L, i + --n );
-	}
+
 	template<typename T> concept Poppable = requires { &type_traits<T>::pop; };
 	template<typename T>
 	inline decltype( auto ) pop( lua_State* L )
@@ -96,6 +116,48 @@ namespace ulua::stack
 			return std::forward_as_tuple( get<Tx>( L, index++ )... );
 		}( std::type_identity<std::decay_t<Tup>>{} );
 	}
+	
+	// Fetches a specific key from the table and pushes it.
+	//
+	inline void get_field( lua_State* L, slot i, const char* field, std::bool_constant<false> = {} )
+	{
+		lua_getfield( L, i, field );
+	}
+	inline void get_field( lua_State* L, slot i, int n, std::bool_constant<false> = {} )
+	{
+		push( L, n );
+		lua_gettable( L, i );
+	}
+	inline void get_field( lua_State* L, slot i, const char* field, raw_t )
+	{
+		push( L, field );
+		lua_rawget( L, i );
+	}
+	inline void get_field( lua_State* L, slot i, int n, raw_t )
+	{
+		lua_rawgeti( L, i, n );
+	}
+
+	// Pops a value off of the stack and assigns the value to the given field of the table.
+	//
+	inline void set_field( lua_State* L, slot i, const char* field, std::bool_constant<false> = {} )
+	{
+		lua_setfield( L, i, field );
+	}
+	inline void set_field( lua_State* L, slot i, int n, std::bool_constant<false> = {} )
+	{
+		push( L, n );
+		lua_settable( L, i );
+	}
+	inline void set_field( lua_State* L, slot i, const char* field, raw_t )
+	{
+		push( L, field );
+		lua_rawset( L, i );
+	}
+	inline void set_field( lua_State* L, slot i, int n, raw_t )
+	{
+		lua_rawseti( L, i, n );
+	}
 
 	// Pushes the metatable for a given object.
 	//
@@ -111,19 +173,28 @@ namespace ulua::stack
 		lua_setmetatable( L, i );
 	}
 
-	// Call to metamethods.
+	// Calls a metafield of the given object, if existant pushes the result on top of the stack and returns true, else does nothing.
 	//
-	inline bool call_meta( lua_State* L, slot i, const char* field )
+	template<typename... Tx>
+	inline bool call_meta( lua_State* L, slot i, const char* field, Tx&&... args )
 	{
-		return luaL_callmeta( L, i, field ) != 0;
+		push( L, std::forward<Tx>( args )... );
+		if ( luaL_callmeta( L, i, field ) != 0 )
+			return true;
+		pop_n( L, sizeof...( args ) );
+		return false;
 	}
 
-	// Getter for metafields.
+	// Gets a metafield of the given object, if existant pushes it on top of the stack and returns true, else does nothing.
 	//
 	inline bool get_meta( lua_State* L, slot i, const char* field )
 	{
 		return luaL_getmetafield( L, i, field ) != 0;
 	}
+
+	// Gets the type of the value in the stack slot.
+	//
+	inline value_type type( lua_State* L, slot i ) { return ( value_type ) lua_type( L, i ); }
 
 	// String conversion.
 	//
