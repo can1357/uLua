@@ -27,7 +27,7 @@ namespace ulua
 
 	// Load result.
 	//
-	template<Reference Ref = registry_reference>
+	template<Reference Ref>
 	struct load_result : Ref, detail::lazy_invocable<load_result<Ref>>
 	{
 		int retval;
@@ -65,10 +65,11 @@ namespace ulua
 
 		// Creates a table.
 		//
-		inline table make_table( size_t num_arr = 0, size_t num_rec = 0 )
+		template<typename T = table>
+		inline T make_table( reserve_table rsvd = {} )
 		{
-			lua_createtable( L, num_arr, num_rec );
-			return table{ registry_reference{ L, stack::top_t{} } };
+			stack::create_table( L, rsvd );
+			return T{ L, stack::top_t{} };
 		}
 
 		// Creates a metatable.
@@ -76,7 +77,7 @@ namespace ulua
 		template<typename T = table>
 		inline std::pair<T, bool> make_metatable( const char* name )
 		{
-			bool inserted = luaL_newmetatable( L, name ) == 1;
+			bool inserted = stack::create_metatable( L, name );
 			return std::pair{ T{ L, stack::top_t{} }, inserted };
 		}
 		
@@ -142,7 +143,7 @@ namespace ulua
 				stack::slot top = stack::top( L );
 				return function_result{ L, top, top + 1, result.retval };
 			}
-			return result();
+			return std::move( result )();
 		}
 
 		// Collects garbage.

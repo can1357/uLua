@@ -4,6 +4,8 @@
 
 namespace ulua
 {
+	namespace detail { struct unchecked_t {}; };
+
 	// Reference tag.
 	//
 	struct reference_base
@@ -57,21 +59,26 @@ namespace ulua
 		inline void reset()
 		{
 			if ( std::exchange( valid_flag, false ) && std::exchange( ownership_flag, false ) && stack::is_absolute( index ) )
-				lua_remove( L, index );
+				stack::checked_remove( L, index );
+		}
+		inline void reset( detail::unchecked_t )
+		{
+			if ( std::exchange( valid_flag, false ) && std::exchange( ownership_flag, false ) && stack::is_absolute( index ) )
+				stack::remove( L, index );
 		}
 		inline ~stack_reference() { reset(); }
 	};
 	struct registry_reference : reference_base
 	{
 		lua_State* L = nullptr;
-		int key = LUA_REFNIL;
+		reg_key key = {};
 		bool valid_flag = false;
 
 		// Construction, copy & move.
 		//
 		inline constexpr registry_reference() {}
-		inline constexpr registry_reference( lua_State* L, int key ) : L( L ), key( key ), valid_flag( true ) {}
-		inline registry_reference( lua_State* L, stack::top_t ) : registry_reference( L, luaL_ref( L, LUA_REGISTRYINDEX ) ) {}
+		inline constexpr registry_reference( lua_State* L, reg_key key ) : L( L ), key( key ), valid_flag( true ) {}
+		inline registry_reference( lua_State* L, stack::top_t ) : registry_reference( L, stack::pop_reg( L ) ) {}
 
 		inline constexpr registry_reference( registry_reference&& o ) noexcept { swap( o ); }
 		inline constexpr registry_reference& operator=( registry_reference&& o ) noexcept { swap( o ); return *this; }
@@ -80,7 +87,7 @@ namespace ulua
 		inline constexpr void swap( registry_reference& other ) noexcept
 		{
 			std::swap( L, other.L );
-			std::swap( key, other.key );
+			std::swap( key.key, other.key.key );
 			std::swap( valid_flag, other.valid_flag );
 		}
 		template<typename Ref>
@@ -109,14 +116,14 @@ namespace ulua
 		// Generic reference functions.
 		//
 		inline lua_State* state() const { return L; }
-		inline int registry_index() const { return key; }
-		inline void push() const { lua_rawgeti( L, LUA_REGISTRYINDEX, key ); }
+		inline reg_key registry_key() const { return key; }
+		inline void push() const { stack::push_reg( L, key ); }
 		inline bool valid() const { return valid_flag; }
 		inline void release() { valid_flag = false; }
 		inline void reset()
 		{
 			if ( std::exchange( valid_flag, false ) )
-				luaL_unref( L, LUA_REGISTRYINDEX, key );
+				unref( L, key );
 		}
 		inline ~registry_reference() { reset(); }
 	};

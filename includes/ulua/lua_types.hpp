@@ -20,6 +20,30 @@ namespace ulua
 	};
 	inline const char* type_name( value_type type ) { return lua_typename( nullptr, ( int ) type ); }
 
+	// Metatable fields.
+	//
+	enum class meta : uint8_t
+	{
+		metatable, newindex,  index, gc,
+		tostring,  name,      len,   ipairs,
+		pairs,     unm,       add,   sub,
+		mul,       div,       idiv,  mod,
+		pow,       concat,    eq,    lt,
+		le
+	};
+	inline constexpr const char* metafield_name( meta field ) 
+	{
+		constexpr const char* arr[] = {
+			"__metatable", "__newindex", "__index",     "__gc",
+			"__tostring",  "__name",     "__len",       "__ipairs",
+			"__pairs",     "__unm",      "__add",       "__sub",
+			"__mul",       "__div",      "__idiv",      "__mod",
+			"__pow",       "__concat",   "__eq",        "__lt",
+			"__le"
+		};
+		return arr[ ( size_t ) field ];
+	}
+
 	// Primitive types.
 	//
 	struct nil_t { struct tag {}; constexpr explicit nil_t( tag ) {} };
@@ -115,7 +139,7 @@ namespace ulua
 		{
 			return lua_isnil( L, idx );
 		}
-		inline static nil_t get( lua_State* L, int idx )
+		inline static nil_t get( lua_State*, int )
 		{
 			return nil;
 		}

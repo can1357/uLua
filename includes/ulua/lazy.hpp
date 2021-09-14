@@ -11,7 +11,7 @@ namespace ulua
 	namespace detail
 	{
 		template<typename T>
-		concept TableKey = std::is_convertible_v<T, const char*> || std::is_convertible_v<T, int>;
+		concept TableKey = std::is_convertible_v<T, const char*> || std::is_convertible_v<T, int> || std::is_convertible_v<T, meta>;
 		template<TableKey Key, bool Raw>
 		struct table_proxy;
 		template<typename... Tx>
@@ -77,8 +77,15 @@ namespace ulua::detail
 		template<TableKey T, bool IsRaw = false>
 		inline auto at( T key, std::bool_constant<IsRaw> = {} ) const&
 		{
-			( ( Ref* ) this )->push();
-			return make_table_proxy<IsRaw>( ( ( Ref* ) this )->state(), stack::top_t{}, true, key );
+			if constexpr ( Ref::is_direct )
+			{
+				return make_table_proxy<IsRaw>( ( ( Ref* ) this )->state(), ( ( Ref* ) this )->slot(), false, key );
+			}
+			else
+			{
+				( ( Ref* ) this )->push();
+				return make_table_proxy<IsRaw>( ( ( Ref* ) this )->state(), stack::top_t{}, true, key );
+			}
 		}
 		template<TableKey T, bool IsRaw = false>
 		inline auto at( T key, std::bool_constant<IsRaw> = {} ) &&
@@ -103,7 +110,19 @@ namespace ulua::detail
 	template<typename Ref>
 	struct lazy_invocable
 	{
-		template<typename... Tx> inline function_result operator()( Tx&&... args ) { ( ( Ref* ) this )->push(); return pcall( ( ( Ref* ) this )->state(), std::forward<Tx>( args )... ); }
+		template<typename... Tx> inline function_result operator()( Tx&&... args ) const &
+		{ 
+			( ( Ref* ) this )->push(); 
+			return pcall( ( ( Ref* ) this )->state(), std::forward<Tx>( args )... ); 
+		}
+		
+		template<typename... Tx> inline function_result operator()( Tx&&... args ) &&
+		{ 
+			( ( Ref* ) this )->push();
+			if constexpr ( Ref::is_direct )
+				( ( Ref* ) this )->reset( unchecked_t{} );
+			return pcall( ( ( Ref* ) this )->state(), std::forward<Tx>( args )... ); 
+		}
 	};
 
 	// All the traits above.

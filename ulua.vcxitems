@@ -25,5 +25,7 @@
     <ClInclude Include="$(MSBuildThisFileDirectory)includes\ulua\reference.hpp" />
     <ClInclude Include="$(MSBuildThisFileDirectory)includes\ulua\state.hpp" />
     <ClInclude Include="$(MSBuildThisFileDirectory)includes\ulua\table.hpp" />
+    <ClInclude Include="$(MSBuildThisFileDirectory)includes\ulua\userdata.hpp" />
+    <ClInclude Include="$(MSBuildThisFileDirectory)includes\ulua\userdata_metatable.hpp" />
   </ItemGroup>
 </Project>

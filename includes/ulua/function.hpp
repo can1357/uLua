@@ -97,7 +97,10 @@ namespace ulua
 
 		// Remove from stack on destruction.
 		//
-		inline ~function_result() { stack::remove( L, first, last - first ); }
+		inline ~function_result() 
+		{ 
+			stack::checked_remove( L, first, last - first );
+		}
 	};
 
 	// Function invocation.

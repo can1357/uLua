@@ -7,3 +7,5 @@
 #include "ulua/table.hpp"
 #include "ulua/function.hpp"
 #include "ulua/state.hpp"
+#include "ulua/userdata.hpp"
+#include "ulua/userdata_metatable.hpp"

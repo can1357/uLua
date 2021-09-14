@@ -6,29 +6,49 @@
 namespace ulua
 {
 	struct state_view;
+	struct push_count { int n; };
 
 	namespace detail
 	{
-		// Stack get all wrapper with handling for state_view.
+		// Applies a function an pushes the result.
 		//
-		template<typename T>
-		struct arg_referencer;
-		template<typename... Tx>
-		struct arg_referencer<std::tuple<Tx...>>
+		template<typename Ret, typename Args, typename F>
+		static int apply_closure( lua_State* L, F& func )
 		{
-			inline auto operator()( lua_State* L ) const
+			auto apply = [ & ] () -> Ret
 			{
-				return stack::get_all<std::tuple<Tx...>>( L, 1 );
-			}
-		};
-		template<typename... Tx>
-		struct arg_referencer<std::tuple<state_view, Tx...>>
-		{
-			inline auto operator()( lua_State* L ) const
+				using ArgsPoped = tuple_pop<Args>;
+				if constexpr ( std::is_same_v<typename ArgsPoped::popped, lua_State*> || std::is_same_v<typename ArgsPoped::popped, state_view> )
+					return std::apply( [ & ] <typename... Tx> ( Tx&&... args ) -> Ret { return func( L, std::forward<Tx>( args )... ); }, stack::get_all<typename ArgsPoped::type>( L, 1 ) );
+				else
+					return std::apply( [ & ] <typename... Tx> ( Tx&&... args ) -> Ret { return func( std::forward<Tx>( args )... ); }, stack::get_all<Args>( L, 1 ) );
+			};
+
+			if constexpr ( std::is_void_v<Ret> )
 			{
-				return std::tuple_cat( std::tuple{ L }, stack::get_all<std::tuple<Tx...>>( L, 1 ) );
+				apply();
+				return 0;
 			}
-		};
+			else
+			{
+				Ret result = apply();
+
+				if constexpr ( std::is_same_v<push_count, std::decay_t<Ret>> )
+				{
+					return result.n;
+				}
+				else if constexpr ( is_tuple_v<Ret> )
+				{
+					stack::push_all( L, std::forward<Ret>( result ) );
+					return ( int ) std::tuple_size_v<Ret>;
+				}
+				else
+				{
+					stack::push( L, std::forward<Ret>( result ) );
+					return 1;
+				}
+			}
+		}
 
 		// Pushes a runtime closure.
 		//
@@ -50,17 +70,8 @@ namespace ulua
 			{
 				wrapper = [ ] ( lua_State* L ) -> int
 				{
-					Ret result = std::apply( Func{}, arg_referencer<Args>{}( L ) );
-					if constexpr ( detail::is_tuple_v<Ret> )
-					{
-						stack::push_all( L, std::move( result ) );
-						return ( int ) std::tuple_size_v<Ret>;
-					}
-					else
-					{
-						stack::push( L, std::move( result ) );
-						return 1;
-					}
+					Func fn{};
+					return apply_closure<Ret, Args>( L, fn );
 				};
 			}
 			// Stateful lambda:
@@ -73,26 +84,18 @@ namespace ulua
 				wrapper = [ ] ( lua_State* L ) -> int
 				{
 					auto* fn = ( Func* ) lua_touserdata( L, lua_upvalueindex( 1 ) );
-					Ret result = std::apply( *fn, arg_referencer<Args>{}( L ) );
-					if constexpr ( detail::is_tuple_v<Ret> )
-					{
-						stack::push_all( L, std::move( result ) );
-						return ( int ) std::tuple_size_v<Ret>;
-					}
-					else
-					{
-						stack::push( L, std::move( result ) );
-						return 1;
-					}
+					return apply_closure<Ret, Args>( L, *fn );
 				};
 	
 				if constexpr ( !std::is_trivially_destructible_v<Func> )
 				{
 					lua_createtable( L, 0, 1 );
-					lua_pushcfunction( L, [ ] ( lua_State* L )
+					stack::push<cfunction_t>( L, [ ] ( lua_State* L )
 					{
 						std::destroy_at( ( Func* ) lua_touserdata( L, 1 ) );
+						return 0;
 					} );
+					stack::set_field( L, -2, meta::gc );
 					lua_setfield( L, -2, "__gc" );
 					lua_setmetatable( L, -2 );
 				}
@@ -107,17 +110,7 @@ namespace ulua
 				wrapper = [ ] ( lua_State* L ) -> int
 				{
 					auto fn = ( Func ) lua_touserdata( L, lua_upvalueindex( 1 ) );
-					Ret result = std::apply( fn, arg_referencer<Args>{}( L ) );
-					if constexpr ( detail::is_tuple_v<Ret> )
-					{
-						stack::push_all( L, std::move( result ) );
-						return ( int ) std::tuple_size_v<Ret>;
-					}
-					else
-					{
-						stack::push( L, std::move( result ) );
-						return 1;
-					}
+					return apply_closure<Ret, Args>( L, fn );
 				};
 			}
 			// Member function:
@@ -152,17 +145,8 @@ namespace ulua
 			{
 				cfunction_t wrapper = [ ] ( lua_State* L ) -> int
 				{
-					Ret result = std::apply( F, arg_referencer<Args>{}( L ) );
-					if constexpr ( detail::is_tuple_v<Ret> )
-					{
-						stack::push_all( L, std::move( result ) );
-						return ( int ) std::tuple_size_v<Ret>;
-					}
-					else
-					{
-						stack::push( L, std::move( result ) );
-						return 1;
-					}
+					auto fn = F;
+					return apply_closure<Ret, Args>( L, fn );
 				};
 				lua_pushcclosure( L, wrapper, 0 );
 			}
