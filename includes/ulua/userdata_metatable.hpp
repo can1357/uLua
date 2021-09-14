@@ -271,7 +271,7 @@ namespace ulua
 			// Set all the always existing properties.
 			//
 			stack_table metatable{ L, i, weak_t{} };
-			metatable[ meta::metatable ] = nil;
+			metatable[ meta::metatable ] = 0;
 			metatable[ meta::newindex ] = detail::constant<&newindex>();
 			metatable[ meta::index ] = detail::constant<&index>();
 			metatable[ meta::gc ] = detail::constant<&gc>();
