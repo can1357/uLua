@@ -377,11 +377,11 @@ namespace ulua
 
 					std::string expected;
 					if constexpr ( detail::Addable<T, T> && detail::Addable<T, double> )
-						expected = std::string{ type_name() } + " or number";
+						expected = std::string{ userdata_name<T>() } + " or number";
 					else if constexpr ( detail::Addable<T, double> )
 						expected = "number";
 					else
-						expected = std::string{ type_name() };
+						expected = std::string{ userdata_name<T>() };
 					detail::type_error( obj.state(), obj.slot(), expected.data() );
 				};
 			}
@@ -398,11 +398,11 @@ namespace ulua
 
 					std::string expected;
 					if constexpr ( detail::Subable<T, T> && detail::Subable<T, double> )
-						expected = std::string{ type_name() } + " or number";
+						expected = std::string{ userdata_name<T>() } + " or number";
 					else if constexpr ( detail::Subable<T, double> )
 						expected = "number";
 					else
-						expected = std::string{ type_name() };
+						expected = std::string{ userdata_name<T>() };
 					detail::type_error( obj.state(), obj.slot(), expected.data() );
 				};
 			}
@@ -419,11 +419,11 @@ namespace ulua
 
 					std::string expected;
 					if constexpr ( detail::Mulable<T, T> && detail::Mulable<T, double> )
-						expected = std::string{ type_name() } + " or number";
+						expected = std::string{ userdata_name<T>() } + " or number";
 					else if constexpr ( detail::Mulable<T, double> )
 						expected = "number";
 					else
-						expected = std::string{ type_name() };
+						expected = std::string{ userdata_name<T>() };
 					detail::type_error( obj.state(), obj.slot(), expected.data() );
 				};
 			}
@@ -440,11 +440,11 @@ namespace ulua
 
 					std::string expected;
 					if constexpr ( detail::Divable<T, T> && detail::Divable<T, double> )
-						expected = std::string{ type_name() } + " or number";
+						expected = std::string{ userdata_name<T>() } + " or number";
 					else if constexpr ( detail::Divable<T, double> )
 						expected = "number";
 					else
-						expected = std::string{ type_name() };
+						expected = std::string{ userdata_name<T>() };
 					detail::type_error( obj.state(), obj.slot(), expected.data() );
 				};
 			}
@@ -461,11 +461,11 @@ namespace ulua
 
 					std::string expected;
 					if constexpr ( detail::Idivable<T, T> && detail::Idivable<T, double> )
-						expected = std::string{ type_name() } + " or number";
+						expected = std::string{ userdata_name<T>() } + " or number";
 					else if constexpr ( detail::Idivable<T, double> )
 						expected = "number";
 					else
-						expected = std::string{ type_name() };
+						expected = std::string{ userdata_name<T>() };
 					detail::type_error( obj.state(), obj.slot(), expected.data() );
 				};
 			}
@@ -482,11 +482,11 @@ namespace ulua
 
 					std::string expected;
 					if constexpr ( detail::Modable<T, T> && detail::Modable<T, double> )
-						expected = std::string{ type_name() } + " or number";
+						expected = std::string{ userdata_name<T>() } + " or number";
 					else if constexpr ( detail::Modable<T, double> )
 						expected = "number";
 					else
-						expected = std::string{ type_name() };
+						expected = std::string{ userdata_name<T>() };
 					detail::type_error( obj.state(), obj.slot(), expected.data() );
 				};
 			}
@@ -503,11 +503,11 @@ namespace ulua
 
 					std::string expected;
 					if constexpr ( detail::Powable<T, T> && detail::Powable<T, double> )
-						expected = std::string{ type_name() } + " or number";
+						expected = std::string{ userdata_name<T>() } + " or number";
 					else if constexpr ( detail::Powable<T, double> )
 						expected = "number";
 					else
-						expected = std::string{ type_name() };
+						expected = std::string{ userdata_name<T>() };
 					detail::type_error( obj.state(), obj.slot(), expected.data() );
 				};
 			}

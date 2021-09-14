@@ -98,7 +98,7 @@ namespace ulua
 			{
 				o.push();
 				L = o.L;
-				key = luaL_ref( L, LUA_REGISTRYINDEX );
+				key = stack::pop_reg( L );
 				valid_flag = true;
 			}
 		}
