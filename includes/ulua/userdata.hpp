@@ -216,7 +216,7 @@ namespace ulua
 		}
 		inline static std::shared_ptr<T> get( lua_State* L, int idx )
 		{
-			stack::copy( L, i );
+			stack::copy( L, idx );
 			reg_key key = stack::pop_reg( L );
 
 			T& result = type_traits<T>::get( L, idx );
