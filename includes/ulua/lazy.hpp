@@ -10,14 +10,12 @@ namespace ulua
 	struct function_result;
 	namespace detail
 	{
-		template<typename T>
-		concept TableKey = std::is_convertible_v<T, const char*> || std::is_convertible_v<T, int> || std::is_convertible_v<T, meta>;
-		template<TableKey Key, bool Raw>
+		template<typename Key, bool Raw>
 		struct table_proxy;
 		template<typename... Tx>
 		inline function_result pcall( lua_State* L, Tx&&... args );
-		template<bool Raw, TableKey Key>
-		static table_proxy<Key, Raw> make_table_proxy( lua_State* L, stack::slot slot, bool owning, Key key );
+		template<bool Raw, typename Key>
+		static table_proxy<Key, Raw> make_table_proxy( lua_State* L, stack::slot slot, bool owning, Key&& key );
 	}
 };
 
@@ -74,12 +72,12 @@ namespace ulua::detail
 	template<typename Ref>
 	struct lazy_indexable
 	{
-		template<TableKey T, bool IsRaw = false>
-		inline auto at( T key, std::bool_constant<IsRaw> = {} ) const&
+		template<typename T, bool IsRaw = false>
+		inline auto at( T&& key, std::bool_constant<IsRaw> = {} ) const&
 		{
 			if constexpr ( Ref::is_direct )
 			{
-				return make_table_proxy<IsRaw>( ( ( Ref* ) this )->state(), ( ( Ref* ) this )->slot(), false, key );
+				return make_table_proxy<IsRaw>( ( ( Ref* ) this )->state(), ( ( Ref* ) this )->slot(), false, std::forward<T>( key ) );
 			}
 			else
 			{
@@ -87,22 +85,22 @@ namespace ulua::detail
 				return make_table_proxy<IsRaw>( ( ( Ref* ) this )->state(), stack::top_t{}, true, key );
 			}
 		}
-		template<TableKey T, bool IsRaw = false>
-		inline auto at( T key, std::bool_constant<IsRaw> = {} ) &&
+		template<typename T, bool IsRaw = false>
+		inline auto at( T&& key, std::bool_constant<IsRaw> = {} ) &&
 		{ 
 			if constexpr ( Ref::is_direct )
 			{
 				( ( Ref* ) this )->release();
-				return make_table_proxy<IsRaw>( ( ( Ref* ) this )->state(), ( ( Ref* ) this )->slot(), ( ( Ref* ) this )->ownership_flag, key );
+				return make_table_proxy<IsRaw>( ( ( Ref* ) this )->state(), ( ( Ref* ) this )->slot(), ( ( Ref* ) this )->ownership_flag, std::forward<T>( key ) );
 			}
 			else
 			{
 				( ( Ref* ) this )->push();
-				return make_table_proxy<IsRaw>( ( ( Ref* ) this )->state(), stack::top_t{}, true, key );
+				return make_table_proxy<IsRaw>( ( ( Ref* ) this )->state(), stack::top_t{}, true, std::forward<T>( key ) );
 			}
 		}
-		template<TableKey T> inline auto operator[]( T key ) const& { return at( key ); }
-		template<TableKey T> inline auto operator[]( T key ) && { return std::move( *this ).at( key ); }
+		template<typename T> inline auto operator[]( T&& key ) const& { return at( std::forward<T>( key ) ); }
+		template<typename T> inline auto operator[]( T&& key ) && { return std::move( *this ).at( std::forward<T>( key ) ); }
 	};
 
 	// Lazy invocable.

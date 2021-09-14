@@ -42,6 +42,15 @@ namespace ulua::stack
 	//
 	inline void pop_n( lua_State* L, slot i ) { L->top -= i; }
 
+	// Swaps stack positions.
+	//
+	inline void xchg( lua_State* L, slot a, slot b )
+	{
+		auto* p1 = a < 0 ? &L->top[ a ] : &L->base[ a - 1 ];
+		auto* p2 = b < 0 ? &L->top[ b ] : &L->base[ b - 1 ];
+		std::swap( *p1, *p2 );
+	}
+
 	// Removes a number of stack elements at the given position.
 	//
 	inline void remove( lua_State* L, slot i, size_t n = 1 )
@@ -154,47 +163,65 @@ namespace ulua::stack
 	
 	// Fetches a specific key from the table and pushes it.
 	//
-	inline void get_field( lua_State* L, slot i, const char* field, std::bool_constant<false> = {} )
+	template<typename T, bool Raw = false>
+	inline void get_field( lua_State* L, slot i, const T& key, std::bool_constant<Raw> = {} )
 	{
-		lua_getfield( L, i, field );
+		if constexpr ( std::is_same_v<T, meta> )
+		{
+			get_field( L, i, metafield_name( key ), std::bool_constant<Raw>{} );
+		}
+		else if constexpr ( Raw )
+		{
+			if constexpr ( std::is_integral_v<T> )
+			{
+				lua_rawgeti( L, i, key );
+			}
+			else
+			{
+				push( L, key );
+				lua_rawget( L, i );
+			}
+		}
+		else
+		{
+			push( L, key );
+			lua_gettable( L, i );
+		}
 	}
-	inline void get_field( lua_State* L, slot i, int n, std::bool_constant<false> = {} )
-	{
-		push( L, n );
-		lua_gettable( L, i );
-	}
-	inline void get_field( lua_State* L, slot i, const char* field, raw_t )
-	{
-		push( L, field );
-		lua_rawget( L, i );
-	}
-	inline void get_field( lua_State* L, slot i, int n, raw_t )
-	{
-		lua_rawgeti( L, i, n );
-	}
-	template<bool R = false> inline void get_field( lua_State* L, slot i, meta f, std::bool_constant<R> = {} ) { get_field( L, i, metafield_name( f ), std::bool_constant<R>{} ); }
 
 	// Pops a value off of the stack and assigns the value to the given field of the table.
 	//
-	inline void set_field( lua_State* L, slot i, const char* field, std::bool_constant<false> = {} )
+	template<typename T, bool Raw = false>
+	inline void set_field( lua_State* L, slot i, const T& key, std::bool_constant<Raw> = {} )
 	{
-		lua_setfield( L, i, field );
+		if constexpr ( std::is_same_v<T, meta> )
+		{
+			set_field( L, i, metafield_name( key ), std::bool_constant<Raw>{} );
+		}
+		else if constexpr ( Raw )
+		{
+			push( L, key );
+			xchg( L, -1, -2 );
+			lua_rawset( L, i );
+		}
+		else
+		{
+			if constexpr ( std::convertible_to<T, const char*> )
+			{
+				lua_setfield( L, i, ( const char* ) key );
+			}
+			else if constexpr ( std::is_same_v<T, std::string> )
+			{
+				lua_setfield( L, i, key.data() );
+			}
+			else
+			{
+				push( L, key );
+				xchg( L, -1, -2 );
+				lua_settable( L, i );
+			}
+		}
 	}
-	inline void set_field( lua_State* L, slot i, int n, std::bool_constant<false> = {} )
-	{
-		push( L, n );
-		lua_settable( L, i );
-	}
-	inline void set_field( lua_State* L, slot i, const char* field, raw_t )
-	{
-		push( L, field );
-		lua_rawset( L, i );
-	}
-	inline void set_field( lua_State* L, slot i, int n, raw_t )
-	{
-		lua_rawseti( L, i, n );
-	}
-	template<bool R = false> inline void set_field( lua_State* L, slot i, meta f, std::bool_constant<R> = {} ) { set_field( L, i, metafield_name( f ), std::bool_constant<R>{} ); }
 
 	// Creates a table and pushes it on stack.
 	//

@@ -91,7 +91,7 @@ namespace ulua
 		// References globals.
 		//
 		inline stack_table globals() { return stack_table{ stack_reference{ L, LUA_GLOBALSINDEX } }; }
-		inline auto operator[]( const char* name ) { return detail::make_table_proxy<false>( L, LUA_GLOBALSINDEX, false, name ); }
+		template<typename Key> inline auto operator[]( Key&& key ) { return detail::make_table_proxy<true>( L, LUA_GLOBALSINDEX, false, std::forward<Key>( key ) ); }
 
 		// Opens the given libraries.
 		//

@@ -9,14 +9,14 @@ namespace ulua
 	{
 		// Table proxy.
 		//
-		template<TableKey Key, bool Raw>
+		template<typename Key, bool Raw>
 		struct table_proxy : lazy<table_proxy<Key, Raw>>
 		{
 			static constexpr bool is_direct = false;
 
 			stack_reference table = {};
-			Key key = {};
-			explicit inline table_proxy( lua_State* L, stack::slot slot, bool owning, Key key ) : table( L, slot ), key( key ) { table.ownership_flag = owning; }
+			Key key;
+			explicit inline table_proxy( lua_State* L, stack::slot slot, bool owning, Key&& key ) : table( L, slot ), key( std::forward<Key>( key ) ) { table.ownership_flag = owning; }
 
 			// Reference-like properties.
 			//
@@ -36,7 +36,8 @@ namespace ulua
 			}
 			template<typename T> inline table_proxy& operator=( T&& value ) { set<T>( std::forward<T>( value ) ); return *this; }
 		};
-		template<bool Raw, TableKey Key> static table_proxy<Key, Raw> make_table_proxy( lua_State* L, stack::slot slot, bool owning, Key key ) { return table_proxy<Key, Raw>{ L, slot, owning, key }; }
+		template<bool Raw, typename Key>
+		static table_proxy<Key, Raw> make_table_proxy( lua_State* L, stack::slot slot, bool owning, Key&& key ) { return table_proxy<Key, Raw>{ L, slot, owning, std::forward<Key>( key ) }; }
 	};
 	
 	// Table iterator.

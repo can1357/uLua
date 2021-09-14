@@ -43,7 +43,7 @@ namespace ulua
 #if ULUA_NO_CTTI
 			// Generate anonymous runtime type and metatable names.
 			//
-			inline static const std::string _metatable_name = "@unnamed_" + std::to_string( ++unnamed_type_counter );
+			inline static const std::string _metatable_name = "@anon" + std::to_string( ++unnamed_type_counter );
 			static std::string_view name() { return { _metatable_name.begin() + 2, _metatable_name.end() }; }
 			static std::string_view metatable_name() { return { _metatable_name.begin(), _metatable_name.end() }; }
 #else

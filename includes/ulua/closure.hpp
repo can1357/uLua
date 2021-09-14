@@ -89,15 +89,14 @@ namespace ulua
 	
 				if constexpr ( !std::is_trivially_destructible_v<Func> )
 				{
-					lua_createtable( L, 0, 1 );
+					stack::create_table( L, reserve_records{ 1 } );
 					stack::push<cfunction_t>( L, [ ] ( lua_State* L )
 					{
 						std::destroy_at( ( Func* ) lua_touserdata( L, 1 ) );
 						return 0;
 					} );
 					stack::set_field( L, -2, meta::gc );
-					lua_setfield( L, -2, "__gc" );
-					lua_setmetatable( L, -2 );
+					stack::set_metatable( L, -2 );
 				}
 			}
 			// Function pointer:

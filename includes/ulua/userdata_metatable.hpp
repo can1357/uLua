@@ -534,7 +534,7 @@ namespace ulua
 		inline static auto at( lua_State* L, meta key )
 		{
 			push( L );
-			return detail::table_proxy<meta, false>{ L, stack::top( L ), true, key };
+			return detail::table_proxy<meta, false>{ L, stack::top( L ), true, std::move( key ) };
 		}
 	};
 };
