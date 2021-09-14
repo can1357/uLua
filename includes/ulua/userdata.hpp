@@ -163,8 +163,19 @@ namespace ulua
 	struct type_traits<userdata_wrapper<T>>
 	{
 		// No pusher.
-		inline static bool check( lua_State* L, int& idx ) { idx++; return true; }
-		inline static userdata_wrapper<T>& get( lua_State* L, int& idx ) { return *( userdata_wrapper<T>* ) lua_touserdata( L, idx++ ); }
+		inline static bool check( lua_State* L, int& idx ) 
+		{ 
+			auto wrapper = ( userdata_wrapper<T>* ) lua_touserdata( L, idx++ );
+			return wrapper && wrapper->check(); 
+		}
+		inline static userdata_wrapper<T>& get( lua_State* L, int& idx ) 
+		{
+			int i = idx;
+			auto wrapper = ( userdata_wrapper<T>* ) lua_touserdata( L, idx++ );
+			if ( !wrapper || !wrapper->check() )
+				detail::type_error( L, i, userdata_name<T>().data() );
+			return *wrapper;
+		}
 	};
 	template<UserType T>
 	struct type_traits<T> : emplacable_tag_t
@@ -184,16 +195,11 @@ namespace ulua
 		}
 		inline static bool check( lua_State* L, int& idx )
 		{
-			void* p = lua_touserdata( L, idx++ );
-			return p && ( ( userdata_wrapper<T>* )p )->check();
+			return stack::check<userdata_wrapper<T>>( L, idx );
 		}
 		inline static T& get( lua_State* L, int& idx )
 		{
-			int i = idx;
-			auto& wrapper = stack::get<userdata_wrapper<T>>( L, idx );
-			if ( !wrapper.check() )
-				detail::type_error( L, i, userdata_name<T>().data() );
-			return wrapper.value();
+			return stack::get<userdata_wrapper<T>>( L, idx ).value();
 		}
 	};
 	template<UserType T>
