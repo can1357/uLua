@@ -7,6 +7,7 @@ extern "C" {
 #include <tuple>
 #include <algorithm>
 #include <utility>
+#include <variant>
 
 #ifndef __has_builtin
 	#define __has_builtin(...) 0
@@ -85,6 +86,13 @@ namespace ulua::detail
 	template<typename T1, typename T2> struct is_tuple<std::pair<T1, T2>> { static constexpr bool value = true; };
 	template<typename T>
 	static constexpr bool is_tuple_v = is_tuple<T>::value;
+
+	// Checks if the type is a variant.
+	//
+	template<typename T>               struct is_variant { static constexpr bool value = false; };
+	template<typename... Tx>           struct is_variant<std::variant<Tx...>> { static constexpr bool value = true; };
+	template<typename T>
+	static constexpr bool is_variant_v = is_variant<T>::value;
 	
 	// Checks if the type is a member function or not.
 	//
@@ -115,15 +123,10 @@ namespace ulua::detail
 	{
 		enum_indices<std::tuple_size_v<Tuple>>( [ & ] <size_t N> ( const_tag<N> ) { fn( std::move( std::get<N>( tuple ) ) ); } );
 	}
-	template<typename Tuple, typename F> requires is_tuple_v<Tuple>
+	template<typename Tuple, typename F> requires is_tuple_v<std::remove_const_t<Tuple>>
 	static constexpr void enum_tuple( Tuple& tuple, F&& fn )
 	{
-		enum_indices<std::tuple_size_v<Tuple>>( [ & ] <size_t N> ( const_tag<N> ) { fn( std::get<N>( tuple ) ); } );
-	}
-	template<typename Tuple, typename F> requires is_tuple_v<Tuple>
-	static constexpr void enum_tuple( const Tuple& tuple, F&& fn )
-	{
-		enum_indices<std::tuple_size_v<Tuple>>( [ & ] <size_t N> ( const_tag<N> ) { fn( std::get<N>( tuple ) ); } );
+		enum_indices<std::tuple_size_v<std::remove_const_t<Tuple>>>( [ & ] <size_t N> ( const_tag<N> ) { fn( std::get<N>( tuple ) ); } );
 	}
 
 	// Ordering helper.
