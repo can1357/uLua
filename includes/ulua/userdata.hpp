@@ -167,15 +167,20 @@ namespace ulua
 		inline static userdata_wrapper<T>& get( lua_State* L, int& idx ) { return *( userdata_wrapper<T>* ) lua_touserdata( L, idx++ ); }
 	};
 	template<UserType T>
-	struct type_traits<T>
+	struct type_traits<T> : emplacable_tag_t
 	{
-		template<typename V = T>
-		inline static int push( lua_State* L, V&& value )
+		template<typename... Tx>
+		inline static int emplace( lua_State* L, Tx&&... args )
 		{
-			stack::emplace_userdata<userdata_by_value<T>>( L, std::forward<V>( value ) );
+			stack::emplace_userdata<userdata_by_value<T>>( L, std::forward<Tx>( args )... );
 			userdata_metatable<T>::push( L );
 			stack::set_metatable( L, -2 );
 			return 1;
+		}
+		template<typename V = T>
+		inline static int push( lua_State* L, V&& value )
+		{
+			return emplace( L, std::forward<V>( value ) );
 		}
 		inline static bool check( lua_State* L, int& idx )
 		{

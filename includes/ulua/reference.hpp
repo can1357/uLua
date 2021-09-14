@@ -131,7 +131,7 @@ namespace ulua
 	// Declare type traits for reference types.
 	//
 	template<Reference R>
-	struct type_traits<R>
+	struct type_traits<R> : popable_tag_t
 	{
 		inline static int push( lua_State* L, const R& ref ) { ref.push(); return 1; }
 		inline static bool check( lua_State* L, int& idx ) { return R::check( L, idx ); }

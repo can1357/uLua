@@ -46,6 +46,17 @@ namespace ulua::stack
 		return type_traits<T>::push( L, std::forward<T>( value ) );
 	}
 
+	// Push by emplace.
+	//
+	template<typename T, typename... Tx>
+	inline int emplace( lua_State* L, Tx&&... args )
+	{
+		if constexpr ( Emplacable<T> )
+			return type_traits<T>::emplace( L, std::forward<T>( value ) );
+		else
+			return type_traits<T>::push( L, { std::forward<T>( value ) } );
+	}
+
 	// Pops a given number of items from the top of the stack.
 	//
 	inline void pop_n( lua_State* L, slot i ) { L->top -= i; }
@@ -82,7 +93,6 @@ namespace ulua::stack
 	inline slot abs( lua_State* L, slot i ) { return is_relative( i ) ? top( L ) + 1 + i : i; }
 	inline slot rel( lua_State* L, slot i ) { return is_relative( i ) ? i : i - ( top( L ) + 1 ); }
 
-	template<typename T> concept Poppable = requires { &type_traits<T>::pop; };
 	template<typename T>
 	inline decltype( auto ) pop( lua_State* L )
 	{

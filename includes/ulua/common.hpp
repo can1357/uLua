@@ -260,9 +260,7 @@ namespace ulua::detail
 	template<size_t N>
 	inline bool const_eq( const void* a, const void* b )
 	{
-#if __has_builtin(__builtin_bcmp)
-		return !__builtin_bcmp( a, b, N );
-#elif __has_builtin(__builtin_memcmp)
+#if __has_builtin(__builtin_memcmp)
 		return !__builtin_memcmp( a, b, N );
 #else
 		using T = std::array<uint8_t, N>;

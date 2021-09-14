@@ -59,11 +59,17 @@ namespace ulua
 		void* pointer;
 		operator void*() const { return pointer; }
 	};
+	// Type meta traits.
+	//
+	template<typename T> struct type_traits;
+
+	struct popable_tag_t {};
+	struct emplacable_tag_t {};
+	template<typename T> concept Poppable = std::is_base_of_v<popable_tag_t, type_traits<T>>;
+	template<typename T> concept Emplacable = std::is_base_of_v<emplacable_tag_t, type_traits<T>>;
 
 	// Primitive type traits.
 	//
-	template<typename T>
-	struct type_traits;
 	template<typename T> struct type_traits<T&> : type_traits<T> {};
 	template<typename T> struct type_traits<T&&> : type_traits<T> {};
 	template<typename T> struct type_traits<const T> : type_traits<T> {};
