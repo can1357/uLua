@@ -125,10 +125,10 @@ namespace ulua
 		//
 		inline function_result script_file( const char* path )
 		{
-			auto result = load( path );
+			auto result = load<stack_reference>( path );
 			if ( !result )
 			{
-				stack::push( L, result );
+				result.release();
 				stack::slot top = stack::top( L );
 				return function_result{ L, top, top + 1, result.retval };
 			}
@@ -136,10 +136,10 @@ namespace ulua
 		}
 		inline function_result script( std::string_view script, const char* name = "" )
 		{
-			auto result = load( script, name );
+			auto result = load<stack_reference>( script, name );
 			if ( !result )
 			{
-				stack::push( L, result );
+				result.release();
 				stack::slot top = stack::top( L );
 				return function_result{ L, top, top + 1, result.retval };
 			}
