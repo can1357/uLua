@@ -195,11 +195,11 @@ namespace ulua
 		}
 		inline static bool check( lua_State* L, int& idx )
 		{
-			return stack::check<userdata_wrapper<T>>( L, idx );
+			return type_traits<userdata_wrapper<T>>::check( L, idx );
 		}
 		inline static T& get( lua_State* L, int& idx )
 		{
-			return stack::get<userdata_wrapper<T>>( L, idx ).value();
+			return type_traits<userdata_wrapper<T>>::get( L, idx ).value();
 		}
 	};
 	template<UserType T>
