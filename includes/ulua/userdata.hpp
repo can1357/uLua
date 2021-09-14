@@ -111,8 +111,8 @@ namespace ulua
 	{
 		inline static void* __tag = nullptr;
 
-		int64_t storage_type : 2;
-		int64_t pointer      : 62;
+		uint64_t storage_type : 2;
+		int64_t pointer       : 62;
 		void* const tag = &__tag;
 
 		inline userdata_wrapper() : storage_type( ( int64_t ) userdata_storage::pointer ), pointer( 0 ) {}
