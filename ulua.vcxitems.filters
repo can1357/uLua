@@ -4,10 +4,40 @@
     <Filter Include="Includes">
       <UniqueIdentifier>{7bbd6e5e-dfe6-4d0b-a391-9f6219859627}</UniqueIdentifier>
     </Filter>
+    <Filter Include="Includes\ulua">
+      <UniqueIdentifier>{c20251d0-59ba-4e02-8f01-d1caa43c06e3}</UniqueIdentifier>
+    </Filter>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="$(MSBuildThisFileDirectory)includes\ulua.hpp">
       <Filter>Includes</Filter>
+    </ClInclude>
+    <ClInclude Include="$(MSBuildThisFileDirectory)includes\ulua\common.hpp">
+      <Filter>Includes\ulua</Filter>
+    </ClInclude>
+    <ClInclude Include="$(MSBuildThisFileDirectory)includes\ulua\lua_types.hpp">
+      <Filter>Includes\ulua</Filter>
+    </ClInclude>
+    <ClInclude Include="$(MSBuildThisFileDirectory)includes\ulua\stack.hpp">
+      <Filter>Includes\ulua</Filter>
+    </ClInclude>
+    <ClInclude Include="$(MSBuildThisFileDirectory)includes\ulua\reference.hpp">
+      <Filter>Includes\ulua</Filter>
+    </ClInclude>
+    <ClInclude Include="$(MSBuildThisFileDirectory)includes\ulua\closure.hpp">
+      <Filter>Includes\ulua</Filter>
+    </ClInclude>
+    <ClInclude Include="$(MSBuildThisFileDirectory)includes\ulua\lazy.hpp">
+      <Filter>Includes\ulua</Filter>
+    </ClInclude>
+    <ClInclude Include="$(MSBuildThisFileDirectory)includes\ulua\table.hpp">
+      <Filter>Includes\ulua</Filter>
+    </ClInclude>
+    <ClInclude Include="$(MSBuildThisFileDirectory)includes\ulua\function.hpp">
+      <Filter>Includes\ulua</Filter>
+    </ClInclude>
+    <ClInclude Include="$(MSBuildThisFileDirectory)includes\ulua\state.hpp">
+      <Filter>Includes\ulua</Filter>
     </ClInclude>
   </ItemGroup>
 </Project>
