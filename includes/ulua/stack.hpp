@@ -15,7 +15,7 @@ namespace ulua
 { 
 	// Registry key wrapper.
 	//
-	struct reg_key { int key = LUA_REFNIL; };
+	struct reg_key { int key = LUA_NOREF; };
 
 	// Dereferencing of a registry key.
 	//
@@ -80,7 +80,8 @@ namespace ulua::stack
 
 	// Pushes a given item on the stack to the top of the stack.
 	//
-	inline void copy( lua_State* L, slot i ) { lua_pushvalue( L, i ); }
+	inline void copy( lua_State* L, slot src ) { lua_pushvalue( L, src ); }
+	inline void copy( lua_State* L, slot src, slot dst ) { lua_copy( L, src, dst ); }
 	
 	// Slot traits.
 	//

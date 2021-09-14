@@ -276,19 +276,11 @@ namespace ulua::detail
 	template<typename... Tx>
 	ULUA_COLD inline void error [[noreturn]] ( lua_State* L, const char* fmt, Tx... args )
 	{
-		// TODO: Debug, remove.
-		printf( " [[ uLua error: '" );
-		printf( fmt, args... );
-		printf( "' ]]\n" );
-
 		luaL_error( L, fmt, args... );
 		assume_unreachable();
 	}
-
 	ULUA_COLD inline void type_error [[noreturn]] ( lua_State* L, int arg, const char* type )
 	{
-		// TODO: Debug, remove.
-		printf( " [[ uLua type error: 'Slot #%d' is not '%s' ]] \n", arg, type );
 		luaL_typerror( L, arg, type );
 		assume_unreachable();
 	}

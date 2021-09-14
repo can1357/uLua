@@ -50,7 +50,7 @@ namespace ulua
 			if constexpr ( std::is_same_v<T, nil_t> )
 				return T{};
 			if ( i >= size() )
-				detail::error( L, "Return count mismatch." );
+				detail::error( L, "expected %u return values, got %u", i + 1, size() );
 			return stack::get<T>( L, first + i );
 		}
 		inline std::string to_string( size_t i ) const { return stack::to_string( L, first + i ); }
@@ -84,7 +84,7 @@ namespace ulua
 				return [ & ] <template<typename...> typename Tup, typename... Tx> ( std::type_identity<Tup<Tx...>> )
 				{
 					if ( size() < sizeof...( Tx ) )
-						detail::error( L, "Return count mismatch." );
+						detail::error( L, "expected %u return values, got %u", sizeof...( Tx ), size() );
 					size_t it = 0;
 					return Tup<Tx...>{ as<Tx>( it++ )... };
 				}( std::type_identity<T>{} );

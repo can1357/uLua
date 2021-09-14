@@ -152,7 +152,7 @@ namespace ulua
 		static constexpr void find_field_or_die( lua_State* L, std::string_view name, F&& fn )
 		{
 			if ( !find_field( name, std::forward<F>( fn ) ) )
-				detail::error( L, "attempt to index an unknown field %.*s.%.*s", userdata_name<T>().length(), userdata_name<T>().data(), name.length(), name.data() );
+				detail::error( L, "attempt to index undefined field '%.*s' for type '%.*s'", name.length(), name.data(), userdata_name<T>().length(), userdata_name<T>().data() );
 		}
 
 		// Indexing of the object.
@@ -188,7 +188,7 @@ namespace ulua
 			auto field_indexer = [ & ] <typename Field> ( const Field & field )
 			{
 				if ( !Field::set( u.get(), v ) )
-					detail::error( L, "attempt to modify a const field '%.*s'", field.name.length(), field.name.data() );
+					detail::error( L, "attempt to modify constant field '%.*s' for type '%.*s'", field.name.length(), field.name.data(), userdata_name<T>().length(), userdata_name<T>().data() );
 			};
 
 			if constexpr ( detail::NewIndexable<T> )
