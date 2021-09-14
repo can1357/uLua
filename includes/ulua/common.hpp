@@ -110,41 +110,43 @@ namespace ulua::detail
 
 	// Tuple enumeration.
 	//
-	template<typename Tuple, typename F>
+	template<typename Tuple, typename F> requires is_tuple_v<Tuple>
 	static constexpr void enum_tuple( Tuple&& tuple, F&& fn )
 	{
-		enum_indices<std::tuple_size_v<std::decay_t<Tuple>>>( [ & ] <size_t N> ( const_tag<N> )
-		{
-			fn( std::get<N>( tuple ) );
-		} );
+		enum_indices<std::tuple_size_v<Tuple>>( [ & ] <size_t N> ( const_tag<N> ) { fn( std::move( std::get<N>( tuple ) ) ); } );
+	}
+	template<typename Tuple, typename F> requires is_tuple_v<Tuple>
+	static constexpr void enum_tuple( Tuple& tuple, F&& fn )
+	{
+		enum_indices<std::tuple_size_v<Tuple>>( [ & ] <size_t N> ( const_tag<N> ) { fn( std::get<N>( tuple ) ); } );
+	}
+	template<typename Tuple, typename F> requires is_tuple_v<Tuple>
+	static constexpr void enum_tuple( const Tuple& tuple, F&& fn )
+	{
+		enum_indices<std::tuple_size_v<Tuple>>( [ & ] <size_t N> ( const_tag<N> ) { fn( std::get<N>( tuple ) ); } );
 	}
 
 	// Ordering helper.
 	//
 	template<typename... Tx>
-	struct ordered_fwd_tuple
+	struct ordered_forward_as_tuple
 	{
 		std::tuple<Tx...> value;
-		inline constexpr ordered_fwd_tuple( Tx&&... values ) : value( std::forward<Tx>( values )... ) {}
+		inline constexpr ordered_forward_as_tuple( Tx&&... values ) : value( std::forward<Tx>( values )... ) {}
 		inline auto unwrap() && { return std::move( value ); }
 	};
 	template<typename... Tx>
-	ordered_fwd_tuple( Tx&&... )->ordered_fwd_tuple<Tx...>;
-
-	// Tuple manipulation.
-	//
-	template<typename T>
-	struct tuple_pop
+	ordered_forward_as_tuple( Tx&&... )->ordered_forward_as_tuple<Tx...>;
+	
+	template<typename T1, typename T2>
+	struct ordered_forward_as_pair
 	{
-		using type =   T;
-		using popped = void;
+		std::pair<T1, T2> value;
+		inline constexpr ordered_forward_as_pair( T1&& a, T2&& b ) : value( std::forward<T1>( a ), std::forward<T2>( b ) ) {}
+		inline auto unwrap() && { return std::move( value ); }
 	};
-	template<template<typename...> typename Tup, typename T, typename... Tx>
-	struct tuple_pop<Tup<T, Tx...>>
-	{
-		using type =   Tup<Tx...>;
-		using popped = T;
-	};
+	template<typename T1, typename T2>
+	ordered_forward_as_pair( T1&&, T2&& )->ordered_forward_as_pair<T1, T2>;
 
 	// Function traits.
 	//

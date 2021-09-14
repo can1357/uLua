@@ -38,6 +38,14 @@ namespace ulua::stack
 	//
 	inline void set_top( lua_State* L, slot i ) { lua_settop( L, i ); }
 
+	// Pushes a given value on the stack.
+	//
+	template<typename T>
+	inline int push( lua_State* L, T&& value )
+	{
+		return type_traits<T>::push( L, std::forward<T>( value ) );
+	}
+
 	// Pops a given number of items from the top of the stack.
 	//
 	inline void pop_n( lua_State* L, slot i ) { L->top -= i; }
@@ -84,7 +92,8 @@ namespace ulua::stack
 		}
 		else
 		{
-			decltype( auto ) result = type_traits<T>::get( L, top_t{} );
+			slot s = top_t{};
+			decltype( auto ) result = type_traits<T>::get( L, s );
 			pop_n( L, 1 );
 			return result;
 		}
@@ -112,53 +121,6 @@ namespace ulua::stack
 	void push_reg( lua_State* L, reg_key key )
 	{
 		lua_rawgeti( L, LUA_REGISTRYINDEX, key.key );
-	}
-	
-	// Argument pack helpers.
-	//
-	inline void push( lua_State* ) {}
-	template<typename T, typename... Tx>
-	inline void push( lua_State* L, T&& value, Tx&&... rest )
-	{
-		type_traits<T>::push( L, std::forward<T>( value ) );
-		push( L, std::forward<Tx>( rest )... );
-	}
-	template<typename... Tx> requires( sizeof...( Tx ) > 1 )
-	inline auto pop( lua_State* L )
-	{
-		return detail::ordered_fwd_tuple{ pop<Tx>( L )... }.unwrap();
-	}
-	template<typename... Tx> requires( sizeof...( Tx ) > 1 )
-	inline auto get( lua_State* L, slot i )
-	{
-		return detail::ordered_fwd_tuple{ get<Tx>( L, i++ )... }.unwrap();
-	}
-	
-	// Tuple helpers.
-	//
-	template<typename Tup> requires detail::is_tuple_v<std::decay_t<Tup>>
-	inline void push_all( lua_State* L, Tup&& args )
-	{
-		std::apply( [ & ] <typename... Tx> ( Tx&&... val )
-		{
-			push( L, std::forward<Tx>( val )... );
-		}, std::forward<Tup>( args ) );
-	}
-	template<typename Tup> requires detail::is_tuple_v<std::decay_t<Tup>>
-	inline auto pop_all( lua_State* L )
-	{
-		return [ & ] <template<typename...> typename R, typename... Tx> ( std::type_identity<R<Tx...>> )
-		{
-			return detail::ordered_fwd_tuple{ pop<Tx>( L )... }.unwrap();
-		}( std::type_identity<std::decay_t<Tup>>{} );
-	}
-	template<typename Tup> requires detail::is_tuple_v<std::decay_t<Tup>>
-	inline auto get_all( lua_State* L, slot index )
-	{
-		return [ & ] <template<typename...> typename R, typename... Tx> ( std::type_identity<R<Tx...>> )
-		{
-			return detail::ordered_fwd_tuple{ get<Tx>( L, index++ )... }.unwrap();
-		}( std::type_identity<std::decay_t<Tup>>{} );
 	}
 	
 	// Fetches a specific key from the table and pushes it.
@@ -256,7 +218,7 @@ namespace ulua::stack
 	template<typename... Tx>
 	inline bool call_meta( lua_State* L, slot i, meta field, Tx&&... args )
 	{
-		push( L, std::forward<Tx>( args )... );
+		push( L,std::forward_as_tuple( std::forward<Tx>( args )... ) );
 		if ( luaL_callmeta( L, i, metafield_name( field ) ) != 0 )
 			return true;
 		pop_n( L, sizeof...( args ) );

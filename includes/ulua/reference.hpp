@@ -13,7 +13,7 @@ namespace ulua
 		static constexpr bool is_direct = false;
 		static constexpr bool owning = false;
 
-		inline static bool check( lua_State*, stack::slot ) { return true; }
+		inline static bool check( lua_State*, int& slot ) { slot++; return true; }
 	};
 	template<typename T>
 	concept Reference = std::is_base_of_v<reference_base, std::decay_t<T>>;
@@ -133,17 +133,17 @@ namespace ulua
 	template<Reference R>
 	struct type_traits<R>
 	{
-		inline static void push( lua_State* L, const R& ref ) { ref.push(); }
-		inline static bool check( lua_State* L, int idx ) { return R::check( L, idx ); }
-		inline static R get( lua_State* L, int idx ) 
+		inline static int push( lua_State* L, const R& ref ) { ref.push(); return 1; }
+		inline static bool check( lua_State* L, int& idx ) { return R::check( L, idx ); }
+		inline static R get( lua_State* L, int& idx ) 
 		{ 
 			if constexpr ( R::is_direct )
 			{
-				return R{ L, idx, weak_t{} };
+				return R{ L, idx++, weak_t{} };
 			}
 			else
 			{
-				stack::copy( L, idx );
+				stack::copy( L, idx++ );
 				return R{ L, stack::top_t{} };
 			}
 		}

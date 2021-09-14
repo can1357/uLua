@@ -163,58 +163,62 @@ namespace ulua
 	struct type_traits<userdata_wrapper<T>>
 	{
 		// No pusher.
-		inline static bool check( lua_State* L, int idx ) { return true; }
-		inline static userdata_wrapper<T>& get( lua_State* L, int idx ) { return *( userdata_wrapper<T>* ) lua_touserdata( L, idx ); }
+		inline static bool check( lua_State* L, int& idx ) { idx++; return true; }
+		inline static userdata_wrapper<T>& get( lua_State* L, int& idx ) { return *( userdata_wrapper<T>* ) lua_touserdata( L, idx++ ); }
 	};
 	template<UserType T>
 	struct type_traits<T>
 	{
 		template<typename V = T>
-		inline static void push( lua_State* L, V&& value )
+		inline static int push( lua_State* L, V&& value )
 		{
 			stack::emplace_userdata<userdata_by_value<T>>( L, std::forward<V>( value ) );
 			userdata_metatable<T>::push( L );
 			stack::set_metatable( L, -2 );
+			return 1;
 		}
-		inline static bool check( lua_State* L, int idx )
+		inline static bool check( lua_State* L, int& idx )
 		{
-			void* p = lua_touserdata( L, idx );
+			void* p = lua_touserdata( L, idx++ );
 			return p && ( ( userdata_wrapper<T>* )p )->check();
 		}
-		inline static T& get( lua_State* L, int idx )
+		inline static T& get( lua_State* L, int& idx )
 		{
+			int i = idx;
 			auto& wrapper = stack::get<userdata_wrapper<T>>( L, idx );
 			if ( !wrapper.check() )
-				detail::type_error( L, idx, userdata_name<T>().data() );
+				detail::type_error( L, i, userdata_name<T>().data() );
 			return wrapper.value();
 		}
 	};
 	template<UserType T>
 	struct type_traits<T*>
 	{
-		inline static void push( lua_State* L, T* pointer )
+		inline static int push( lua_State* L, T* pointer )
 		{
 			stack::emplace_userdata<userdata_by_pointer<T>>( L, pointer );
 			userdata_metatable<T>::push( L );
 			stack::set_metatable( L, -2 );
+			return 1;
 		}
-		inline static T* get( lua_State* L, int idx )
+		inline static T* get( lua_State* L, int& idx )
 		{
 			T& result = type_traits<T>::get( L, idx );
 			return &result;
 		}
-		inline static bool check( lua_State* L, int idx ) { return type_traits<T>::check( L, idx ); }
+		inline static bool check( lua_State* L, int& idx ) { return type_traits<T>::check( L, idx ); }
 	};
 	template<UserType T>
 	struct type_traits<std::shared_ptr<T>>
 	{
-		inline static void push( lua_State* L, std::shared_ptr<T> pointer )
+		inline static int push( lua_State* L, std::shared_ptr<T> pointer )
 		{
 			stack::emplace_userdata<userdata_by_shared_ptr<T>>( L, std::move( pointer ) );
 			userdata_metatable<T>::push( L );
 			stack::set_metatable( L, -2 );
+			return 1;
 		}
-		inline static std::shared_ptr<T> get( lua_State* L, int idx )
+		inline static std::shared_ptr<T> get( lua_State* L, int& idx )
 		{
 			stack::copy( L, idx );
 			reg_key key = stack::pop_reg( L );
@@ -228,17 +232,18 @@ namespace ulua
 	template<UserType T>
 	struct type_traits<std::reference_wrapper<T>>
 	{
-		inline static void push( lua_State* L, std::reference_wrapper<T> pointer )
+		inline static int push( lua_State* L, std::reference_wrapper<T> pointer )
 		{
 			stack::emplace_userdata<userdata_by_pointer<T>>( L, &pointer.get() );
 			userdata_metatable<T>::push( L );
 			stack::set_metatable( L, -2 );
+			return 1;
 		}
-		inline static std::reference_wrapper<T> get( lua_State* L, int idx )
+		inline static std::reference_wrapper<T> get( lua_State* L, int& idx )
 		{
 			T& result = type_traits<T>::get( L, idx );
 			return std::reference_wrapper<T>( result );
 		}
-		inline static bool check( lua_State* L, int idx ) { return type_traits<T>::check( L, idx ); }
+		inline static bool check( lua_State* L, int& idx ) { return type_traits<T>::check( L, idx ); }
 	};
 };

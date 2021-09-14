@@ -31,7 +31,7 @@ namespace ulua
 			template<typename T>
 			inline void set( T&& value )
 			{
-				stack::push<T>( table.state(), std::forward<T>( value ) );
+				stack::push( table.state(), std::forward<T>( value ) );
 				stack::set_field( table.state(), table.slot(), key, std::bool_constant<Raw>{} );
 			}
 			template<typename T> inline table_proxy& operator=( T&& value ) { set<T>( std::forward<T>( value ) ); return *this; }

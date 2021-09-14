@@ -17,11 +17,7 @@ namespace ulua
 		{
 			auto apply = [ & ] () -> Ret
 			{
-				using ArgsPoped = tuple_pop<Args>;
-				if constexpr ( std::is_same_v<typename ArgsPoped::popped, lua_State*> || std::is_same_v<typename ArgsPoped::popped, state_view> )
-					return std::apply( [ & ] <typename... Tx> ( Tx&&... args ) -> Ret { return func( L, std::forward<Tx>( args )... ); }, stack::get_all<typename ArgsPoped::type>( L, 1 ) );
-				else
-					return std::apply( [ & ] <typename... Tx> ( Tx&&... args ) -> Ret { return func( std::forward<Tx>( args )... ); }, stack::get_all<Args>( L, 1 ) );
+				return std::apply( [ & ] <typename... Tx> ( Tx&&... args ) -> Ret { return func( std::forward<Tx>( args )... ); }, stack::get<Args>( L, 1 ) );
 			};
 
 			if constexpr ( std::is_void_v<Ret> )
@@ -32,21 +28,10 @@ namespace ulua
 			else
 			{
 				Ret result = apply();
-
 				if constexpr ( std::is_same_v<push_count, std::decay_t<Ret>> )
-				{
 					return result.n;
-				}
-				else if constexpr ( is_tuple_v<Ret> )
-				{
-					stack::push_all( L, std::forward<Ret>( result ) );
-					return ( int ) std::tuple_size_v<Ret>;
-				}
 				else
-				{
-					stack::push( L, std::forward<Ret>( result ) );
-					return 1;
-				}
+					return stack::push( L, std::forward<Ret>( result ) );
 			}
 		}
 
@@ -169,17 +154,19 @@ namespace ulua
 	template<auto F> requires detail::Invocable<decltype(F)>
 	struct type_traits<detail::const_tag<F>>
 	{
-		inline static void push( lua_State* L, detail::const_tag<F> ) 
+		inline static int push( lua_State* L, detail::const_tag<F> ) 
 		{
 			detail::push_closure( L, detail::const_tag<F>{} );
+			return 1;
 		}
 	};
 	template<typename F> requires ( !Reference<std::decay_t<F>> && detail::Invocable<std::decay_t<F>> && !std::is_same_v<std::decay_t<F>, cfunction_t> )
 	struct type_traits<F>
 	{
-		inline static void push( lua_State* L, F&& func ) 
+		inline static int push( lua_State* L, F&& func ) 
 		{
 			detail::push_closure( L, std::forward<F>( func ) );
+			return 1;
 		}
 	};
 };

@@ -115,7 +115,7 @@ namespace ulua
 			// Push the arguments.
 			//
 			constexpr size_t num_args = sizeof...( Tx );
-			stack::push( L, std::forward<Tx>( args )... );
+			stack::push( L, std::forward_as_tuple( std::forward<Tx>( args )... ) );
 
 			// Do the pcall.
 			//

@@ -165,12 +165,13 @@ namespace ulua
 			{
 				using K = detail::default_key_type_t<T>;
 
-				if ( k.is<std::string_view>() )
+				bool is_string = k.is<std::string_view>();
+				if ( is_string )
 				{
 					if ( find_field( k.as<std::string_view>(), field_indexer ) )
 						return { 1 };
 				}
-				if ( k.is<K>() )
+				if ( std::is_same_v<K, const char*> || std::is_same_v<K, std::string_view> || std::is_same_v<K, std::string> ? is_string : k.is<K>() )
 					stack::push( L, u.value()[ k.as<K>() ] );
 				else
 					stack::push( L, nil );
@@ -195,13 +196,13 @@ namespace ulua
 				using K = detail::default_key_type_t<T>;
 				using V = detail::default_value_type_t<T>;
 
-				if ( k.is<std::string_view>() )
+				bool is_string = k.is<std::string_view>();
+				if ( is_string )
 				{
 					bool success = find_field( k.as<std::string_view>(), field_indexer );
 					if ( success ) return;
 				}
-
-				if ( k.is<K>() )
+				if ( std::is_same_v<K, const char*> || std::is_same_v<K, std::string_view> || std::is_same_v<K, std::string> ? is_string : k.is<K>() )
 					u.value()[ k.as<K>() ] = v.as<V>();
 				else
 					detail::type_error( L, k.slot(), "valid key" );
