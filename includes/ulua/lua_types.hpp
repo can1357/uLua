@@ -65,8 +65,10 @@ namespace ulua
 
 	struct popable_tag_t {};
 	struct emplacable_tag_t {};
+	struct deferrable_tag_t {};
 	template<typename T> concept Poppable = std::is_base_of_v<popable_tag_t, type_traits<T>>;
 	template<typename T> concept Emplacable = std::is_base_of_v<emplacable_tag_t, type_traits<T>>;
+	template<typename T> concept Deferrable = std::is_base_of_v<deferrable_tag_t, type_traits<T>>;
 
 	// Primitive type traits.
 	//
@@ -209,8 +211,6 @@ namespace ulua
 			return { lua_touserdata( L, idx++ ) };
 		}
 	};
-
-
 	namespace detail
 	{
 		template<typename... Tx>
@@ -230,10 +230,17 @@ namespace ulua
 				} );
 			}
 		};
+		template<typename T>
+		inline decltype( auto ) get_deferred_if( lua_State* L, int& idx )
+		{
+			if constexpr ( Deferrable<T> )
+				return type_traits<T>::get_deferred( L, idx );
+			else
+				return type_traits<T>::get( L, idx );
+		}
 	};
-
 	template<typename... Tx>
-	struct type_traits<std::variant<Tx...>>
+	struct type_traits<std::variant<Tx...>> : deferrable_tag_t
 	{
 		template<typename Var>
 		inline static int push( lua_State* L, Var&& value )
@@ -263,8 +270,7 @@ namespace ulua
 			} );
 			return valid;
 		}
-
-		inline static detail::deferred_variant<Tx...> get( lua_State* L, int& idx )
+		inline static detail::deferred_variant<Tx...> get_deferred( lua_State* L, int& idx )
 		{
 			detail::deferred_variant<Tx...> result = { L, idx, std::variant_npos };
 			detail::enum_indices<sizeof...( Tx )>( [ & ] <size_t N> ( detail::const_tag<N> )
@@ -283,9 +289,11 @@ namespace ulua
 				detail::type_error( L, idx, "variant<...>" /*TODO: Namer*/ );
 			return result;
 		}
+		using variant_result_t = std::variant<decltype( type_traits<Tx>::get( std::declval<lua_State*>(), std::declval<int&>() ) )...>;
+		inline static variant_result_t get( lua_State* L, int& idx ) { return get_deferred( L, idx ); }
 	};
 	template<typename T>
-	struct type_traits<std::optional<T>>
+	struct type_traits<std::optional<T>> : deferrable_tag_t
 	{
 		template<typename Opt>
 		inline static int push( lua_State* L, Opt&& value )
@@ -295,22 +303,34 @@ namespace ulua
 		}
 		inline static bool check( lua_State* L, int& idx )
 		{
+			int i = idx;
 			if ( type_traits<nil_t>::check( L, idx ) )
 				return true;
-			--idx;
-			return type_traits<T>::check( L, idx );
+			return type_traits<T>::check( L, ( idx = i ) );
 		}
-		using optional_result_t = std::optional<decltype( type_traits<T>::get( std::declval<lua_State*>(), std::declval<int&>() ) )>;
-		inline static optional_result_t get( lua_State* L, int& idx )
+		inline static auto get_deferred( lua_State* L, int& idx )
 		{
+			using R = std::optional<decltype( detail::get_deferred_if<T>( L, idx ) )>;
+
+			int i = idx;
 			if ( type_traits<nil_t>::check( L, idx ) )
-				return std::nullopt;
-			--idx;
-			return type_traits<T>::get( L, idx );
+				return R{ std::nullopt };
+			else
+				return R{ detail::get_deferred_if<T>( L, ( idx = i ) ) };
+		}
+		inline static auto get( lua_State* L, int& idx )
+		{
+			using R = std::optional<decltype( type_traits<T>::get( L, idx ) )>;
+			
+			int i = idx;
+			if ( type_traits<nil_t>::check( L, idx ) )
+				return R{ std::nullopt };
+			else
+				return R{ type_traits<T>::get( L, ( idx = i ) ) };
 		}
 	};
 	template<typename... Tx>
-	struct type_traits<std::tuple<Tx...>>
+	struct type_traits<std::tuple<Tx...>> : deferrable_tag_t
 	{
 		template<typename Tup>
 		inline static int push( lua_State* L, Tup&& value )
@@ -331,13 +351,17 @@ namespace ulua
 			} );
 			return valid;
 		}
+		inline static auto get_deferred( lua_State* L, int& idx )
+		{
+			return detail::ordered_forward_as_tuple{ detail::get_deferred_if<Tx>( L, idx )... }.unwrap();
+		}
 		inline static auto get( lua_State* L, int& idx )
 		{
 			return detail::ordered_forward_as_tuple{ type_traits<Tx>::get( L, idx )... }.unwrap();
 		}
 	};
 	template<typename T1, typename T2>
-	struct type_traits<std::pair<T1, T2>>
+	struct type_traits<std::pair<T1, T2>> : deferrable_tag_t
 	{
 		template<typename Pair>
 		inline static int push( lua_State* L, Pair&& value )
@@ -352,6 +376,10 @@ namespace ulua
 		inline static bool check( lua_State* L, int& idx )
 		{
 			return type_traits<T1>::check( L, idx ) && type_traits<T2>::check( L, idx );
+		}
+		inline static auto get_deferred( lua_State* L, int& idx )
+		{
+			return detail::ordered_forward_as_pair{ detail::get_deferred_if<T1>( L, idx ), detail::get_deferred_if<T2>( L, idx ) }.unwrap();
 		}
 		inline static auto get( lua_State* L, int& idx )
 		{

@@ -118,6 +118,11 @@ namespace ulua::stack
 	{
 		return type_traits<T>::get( L, i );
 	}
+	template<typename T>
+	inline decltype( auto ) get_deferred( lua_State* L, slot i )
+	{
+		return detail::get_deferred_if<T>( L, i );
+	}
 
 	// Pops the top of the stack into registry and returns the registry key.
 	//

@@ -17,7 +17,7 @@ namespace ulua
 		{
 			auto apply = [ & ] () -> Ret
 			{
-				return std::apply( [ & ] <typename... Tx> ( Tx&&... args ) -> Ret { return func( std::forward<Tx>( args )... ); }, stack::get<Args>( L, 1 ) );
+				return std::apply( [ & ] <typename... Tx> ( Tx&&... args ) -> Ret { return func( std::forward<Tx>( args )... ); }, stack::get_deferred<Args>( L, 1 ) );
 			};
 
 			if constexpr ( std::is_void_v<Ret> )
