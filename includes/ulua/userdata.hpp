@@ -97,7 +97,7 @@ namespace ulua
 
 	// User data storage types.
 	//
-	enum class userdata_storage : int8_t
+	enum class userdata_storage : uint8_t
 	{
 		pointer,
 		value,
