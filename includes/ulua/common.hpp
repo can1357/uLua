@@ -361,4 +361,23 @@ namespace ulua::detail
 				return visit_index<Midline>( n, std::forward<F>( fn ) );
 		}
 	}
+
+	// Variant visitor.
+	//
+	template<typename Variant, typename F> requires is_variant_v<Variant>
+	static constexpr decltype( auto ) visit_variant( Variant&& var, F&& fn )
+	{
+		return visit_index<std::variant_size_v<Variant>>( var.index(), [ & ] <size_t N> ( const_tag<N> ) -> decltype( auto )
+		{ 
+			return fn( std::move( std::get<N>( var ) ) );
+		} );
+	}
+	template<typename Variant, typename F> requires is_variant_v<std::remove_const_t<Variant>>
+	static constexpr decltype( auto ) visit_variant( Variant& var, F&& fn )
+	{
+		return visit_index<std::variant_size_v<std::remove_const_t<Variant>>>( var.index(), [ & ] <size_t N> ( const_tag<N> ) -> decltype( auto )
+		{ 
+			return fn( std::get<N>( var ) );
+		} );
+	}
 };

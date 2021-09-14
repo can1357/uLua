@@ -213,32 +213,15 @@ namespace ulua
 	template<typename... Tx>
 	struct type_traits<std::variant<Tx...>>
 	{
-		template<typename Var> requires detail::is_variant_v<Var>
+		template<typename Var>
 		inline static int push( lua_State* L, Var&& value )
 		{
 			size_t idx = value.index();
-			if ( idx == variant_npos ) 
-				return type_traits<nil_t>::push( L, {} );
-
-			return detail::visit_index<std::variant_size_v<Var>>( idx, [ & ] <size_t I> ( xstd::const_tag<I> )
+			if ( idx == std::variant_npos ) [[unlikely]]
+				return type_traits<nil_t>::push( L, nil );
+			return detail::visit_variant( std::forward<Var>( value ), [ & ] <typename T> ( T&& v )
 			{
-				using T = std::variant_alternative_t<I, Var>;
-				return type_traits<T>::push( L, std::move( std::get<I>( value ) ) );
-			} );
-		}
-		template<typename Var> requires detail::is_variant_v<std::remove_const_t<Var>>
-		inline static int push( lua_State* L, Var& value )
-		{
-			using Vr = std::remove_const_t<Var>;
-
-			size_t idx = value.index();
-			if ( idx == variant_npos )
-				return type_traits<nil_t>::push( L, {} );
-
-			return detail::visit_index<std::variant_size_v<Vr>>( idx, [ & ] <size_t I> ( xstd::const_tag<I> )
-			{
-				using T = std::variant_alternative_t<I, Vr>;
-				return type_traits<T>::push( L, std::move( std::get<I>( value ) ) );
+				return type_traits<T>::push( L, std::forward<T>( v ) );
 			} );
 		}
 		inline static bool check( lua_State* L, int& idx )
