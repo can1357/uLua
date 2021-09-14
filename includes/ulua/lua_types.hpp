@@ -81,7 +81,7 @@ namespace ulua
 		}
 		inline static bool check( lua_State* L, int& idx )
 		{
-			return lua_isnumber( L, idx++ );
+			return lua_type( L, idx++ ) == ( int ) value_type::number;
 		}
 		inline static T get( lua_State* L, int& idx )
 		{
@@ -98,7 +98,7 @@ namespace ulua
 		}
 		inline static bool check( lua_State* L, int& idx )
 		{
-			return lua_isnumber( L, idx++ );
+			return lua_type( L, idx++ ) == ( int ) value_type::number;
 		}
 		inline static T get( lua_State* L, int& idx )
 		{
@@ -115,7 +115,7 @@ namespace ulua
 		}
 		inline static bool check( lua_State* L, int& idx )
 		{
-			return lua_isstring( L, idx++ );
+			return lua_type( L, idx++ ) == ( int ) value_type::string;
 		}
 		inline static std::string_view get( lua_State* L, int& idx )
 		{
@@ -144,7 +144,7 @@ namespace ulua
 		}
 		inline static bool check( lua_State* L, int& idx )
 		{
-			return lua_isnil( L, idx++ );
+			return lua_type( L, idx++ ) <= ( int ) value_type::nil;
 		}
 		inline static nil_t get( lua_State*, int& idx )
 		{
@@ -162,7 +162,7 @@ namespace ulua
 		}
 		inline static bool check( lua_State* L, int& idx )
 		{
-			return lua_isboolean( L, idx++ );
+			return lua_type( L, idx++ ) == ( int ) value_type::boolean;
 		}
 		inline static bool get( lua_State* L, int& idx )
 		{
@@ -179,7 +179,7 @@ namespace ulua
 		}
 		inline static bool check( lua_State* L, int& idx )
 		{
-			return lua_iscfunction( L, idx++ );
+			return lua_type( L, idx++ ) == ( int ) value_type::function;
 		}
 		inline static cfunction_t get( lua_State* L, int& idx )
 		{
@@ -196,7 +196,7 @@ namespace ulua
 		}
 		inline static bool check( lua_State* L, int& idx )
 		{
-			return lua_islightuserdata( L, idx++ );
+			return lua_type( L, idx++ ) == ( int ) value_type::light_userdata;
 		}
 		inline static light_userdata get( lua_State* L, int& idx )
 		{
@@ -218,7 +218,7 @@ namespace ulua
 		inline static bool check( lua_State* L, int& idx )
 		{
 			bool valid = false;
-			detail::enum_indices( [ & ] <size_t N> ( detail::const_tag<N> )
+			detail::enum_indices<sizeof...( Tx )>( [ & ] <size_t N> ( detail::const_tag<N> )
 			{
 				using T = std::variant_alternative_t<N, std::variant<Tx...>>;
 				valid = valid || type_traits<T>::check( L, idx );
@@ -228,20 +228,20 @@ namespace ulua
 			return valid;
 		}
 
-		using variant_result_t = std::variant<decltype( type_traits<Tx>::get( std::declval<lua_State>(), std::declval<int&>() ) )...>;
+		using variant_result_t = std::variant<decltype( type_traits<Tx>::get( std::declval<lua_State*>(), std::declval<int&>() ) )...>;
 		inline static variant_result_t get( lua_State* L, int& idx )
 		{
 			variant_result_t result = {};
 
 			bool valid = false;
-			detail::enum_indices( [ & ] <size_t N> ( detail::const_tag<N> )
+			detail::enum_indices<sizeof...( Tx )>( [ & ] <size_t N> ( detail::const_tag<N> )
 			{
 				using T = std::variant_alternative_t<N, std::variant<Tx...>>;
 				if ( valid ) return;
 				valid = type_traits<T>::check( L, idx );
 				idx--;
 				if ( !valid ) return;
-				result.emplace( type_traits<T>::get( L, idx ) );
+				result.template emplace<N>( type_traits<T>::get( L, idx ) );
 				valid = true;
 			} );
 			if ( !valid )
@@ -265,7 +265,7 @@ namespace ulua
 			--idx;
 			return type_traits<T>::check( L, idx );
 		}
-		using optional_result_t = std::optional<decltype( type_traits<T>::get( std::declval<lua_State>(), std::declval<int&>() ) )>;
+		using optional_result_t = std::optional<decltype( type_traits<T>::get( std::declval<lua_State*>(), std::declval<int&>() ) )>;
 		inline static optional_result_t get( lua_State* L, int& idx )
 		{
 			if ( type_traits<nil_t>::check( L, idx ) )

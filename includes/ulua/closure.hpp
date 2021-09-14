@@ -38,7 +38,7 @@ namespace ulua
 		// Pushes a runtime closure.
 		//
 		template<typename F>
-		static void push_closure( lua_State* L, F&& func )
+		static int push_closure( lua_State* L, F&& func )
 		{
 			using Func =   std::decay_t<F>;
 			using Traits = detail::function_traits<Func>;
@@ -110,12 +110,13 @@ namespace ulua
 				}( std::type_identity<Args>{} );
 			}
 			lua_pushcclosure( L, wrapper, upvalue_count );
+			return 1;
 		}
 		
 		// Pushes a constant closure.
 		//
 		template<auto F>
-		static void push_closure( lua_State* L, const_tag<F> )
+		static int push_closure( lua_State* L, const_tag<F> )
 		{
 			using Func =   decltype( F );
 			using Traits = detail::function_traits<Func>;
@@ -133,6 +134,7 @@ namespace ulua
 					return apply_closure<Ret, Args>( L, fn );
 				};
 				lua_pushcclosure( L, wrapper, 0 );
+				return 1;
 			}
 			// Member function:
 			//
@@ -156,8 +158,7 @@ namespace ulua
 	{
 		inline static int push( lua_State* L, detail::const_tag<F> ) 
 		{
-			detail::push_closure( L, detail::const_tag<F>{} );
-			return 1;
+			return detail::push_closure( L, detail::const_tag<F>{} );
 		}
 	};
 	template<typename F> requires ( !Reference<std::decay_t<F>> && detail::Invocable<std::decay_t<F>> && !std::is_same_v<std::decay_t<F>, cfunction_t> )
@@ -165,8 +166,7 @@ namespace ulua
 	{
 		inline static int push( lua_State* L, F&& func ) 
 		{
-			detail::push_closure( L, std::forward<F>( func ) );
-			return 1;
+			return detail::push_closure( L, std::forward<F>( func ) );
 		}
 	};
 };
