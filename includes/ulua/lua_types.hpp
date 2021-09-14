@@ -210,6 +210,28 @@ namespace ulua
 		}
 	};
 
+
+	namespace detail
+	{
+		template<typename... Tx>
+		struct deferred_variant
+		{
+			lua_State* L;
+			int idx;
+			size_t type_index;
+
+			template<typename... Tv>
+			inline operator std::variant<Tv...>() const
+			{
+				return detail::visit_index<sizeof...( Tx )>( type_index, [ & ] <size_t I> ( const_tag<I> ) -> std::variant<Tv...>
+				{
+					int i = idx;
+					return type_traits<std::tuple_element_t<I, std::tuple<Tx...>>>::get( L, i );
+				} );
+			}
+		};
+	};
+
 	template<typename... Tx>
 	struct type_traits<std::variant<Tx...>>
 	{
@@ -230,30 +252,34 @@ namespace ulua
 			detail::enum_indices<sizeof...( Tx )>( [ & ] <size_t N> ( detail::const_tag<N> )
 			{
 				using T = std::variant_alternative_t<N, std::variant<Tx...>>;
-				valid = valid || type_traits<T>::check( L, idx );
-				idx--;
+				if ( valid ) return;
+
+				int i = idx;
+				if ( type_traits<T>::check( L, i ) )
+				{
+					idx = i;
+					valid = true;
+				}
 			} );
-			idx++;
 			return valid;
 		}
 
-		using variant_result_t = std::variant<decltype( type_traits<Tx>::get( std::declval<lua_State*>(), std::declval<int&>() ) )...>;
-		inline static variant_result_t get( lua_State* L, int& idx )
+		inline static detail::deferred_variant<Tx...> get( lua_State* L, int& idx )
 		{
-			variant_result_t result = {};
-
-			bool valid = false;
+			detail::deferred_variant<Tx...> result = { L, idx, std::variant_npos };
 			detail::enum_indices<sizeof...( Tx )>( [ & ] <size_t N> ( detail::const_tag<N> )
 			{
 				using T = std::variant_alternative_t<N, std::variant<Tx...>>;
-				if ( valid ) return;
-				valid = type_traits<T>::check( L, idx );
-				idx--;
-				if ( !valid ) return;
-				result.template emplace<N>( type_traits<T>::get( L, idx ) );
-				valid = true;
+				if ( result.type_index != std::variant_npos ) return;
+
+				int i = idx;
+				if ( type_traits<T>::check( L, i ) )
+				{
+					idx = i;
+					result.type_index = N;
+				}
 			} );
-			if ( !valid )
+			if ( result.type_index == std::variant_npos )
 				detail::type_error( L, idx, "variant<...>" /*TODO: Namer*/ );
 			return result;
 		}
