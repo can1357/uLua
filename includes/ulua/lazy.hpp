@@ -51,9 +51,7 @@ namespace ulua::detail
 			else
 			{
 				( ( Ref* ) this )->push();
-				decltype( auto ) result = stack::get<T>( ( ( Ref* ) this )->state(), stack::top_t{} );
-				stack::pop_n( ( ( Ref* ) this )->state(), 1 );
-				return result;
+				return stack::pop<T>( ( ( Ref* ) this )->state() );
 			}
 		}
 		template<typename T> inline operator T() const { return this->template as<T>(); }
