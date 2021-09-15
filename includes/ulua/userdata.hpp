@@ -21,10 +21,15 @@ namespace ulua
 		template<typename T>
 		concept UserdataHasFields = requires{ user_traits<T>::fields; };
 		template<typename T> struct userdata_fields { static constexpr std::tuple<> value = {}; };
-		template<UserdataHasFields T> struct userdata_fields<T> { static constexpr auto& value = user_traits<T>::fields; };
+		template<UserdataHasFields T> struct userdata_fields<T> { static constexpr const auto& value = user_traits<T>::fields; };
+
+		template<typename T>
+		concept UserdataHasMetatable = requires{ user_traits<T>::metatable; };
+		template<typename T> struct userdata_metatable { static constexpr std::tuple<> value = {}; };
+		template<UserdataHasMetatable T> struct userdata_metatable<T> { static constexpr const auto& value = user_traits<T>::metatable; };
 	};
-	template<typename T>
-	static constexpr auto& userdata_fields = detail::userdata_fields<T>::value;
+	template<typename T> static constexpr const auto& userdata_fields = detail::userdata_fields<T>::value;
+	template<typename T> static constexpr const auto& userdata_meta = detail::userdata_metatable<T>::value;
 
 	// Userdata naming.
 	//
@@ -165,15 +170,15 @@ namespace ulua
 		// No pusher.
 		inline static bool check( lua_State* L, int& idx ) 
 		{ 
-			auto wrapper = ( userdata_wrapper<T>* ) lua_touserdata( L, idx++ );
+			auto wrapper = ( userdata_wrapper<T>* ) type_traits<userdata_value>::get( L, idx ).pointer;
 			return wrapper && wrapper->check(); 
 		}
 		inline static userdata_wrapper<T>& get( lua_State* L, int& idx ) 
 		{
 			int i = idx;
-			auto wrapper = ( userdata_wrapper<T>* ) lua_touserdata( L, idx++ );
+			auto wrapper = ( userdata_wrapper<T>* ) type_traits<userdata_value>::get( L, idx ).pointer;
 			if ( !wrapper || !wrapper->check() )
-				detail::type_error( L, i, userdata_name<T>().data() );
+				type_error( L, i, userdata_name<T>().data() );
 			return *wrapper;
 		}
 	};

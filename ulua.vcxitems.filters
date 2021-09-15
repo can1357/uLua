@@ -45,5 +45,8 @@
     <ClInclude Include="$(MSBuildThisFileDirectory)includes\ulua\userdata_metatable.hpp">
       <Filter>Includes\ulua</Filter>
     </ClInclude>
+    <ClInclude Include="$(MSBuildThisFileDirectory)includes\ulua\lua_api.hpp">
+      <Filter>Includes\ulua</Filter>
+    </ClInclude>
   </ItemGroup>
 </Project>

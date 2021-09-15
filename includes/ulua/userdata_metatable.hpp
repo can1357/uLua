@@ -52,58 +52,104 @@ namespace ulua
 
 	// Helpers for the user to expose members or properties.
 	//
-	template<auto Value>
-	struct member 
-	{ 
+	template<typename T>
+	struct metaproperty_descriptor
+	{
+		T value;
+		meta field;
+		inline constexpr metaproperty_descriptor( meta field, T&& value ) : value( std::forward<T>( value ) ), field( field ) {}
+	};
+	template<auto Value> static constexpr auto property( meta field ) { return metaproperty_descriptor{ field, constant<Value>() }; }
+	template<typename T> static constexpr auto property( meta field, T&& value ) { return metaproperty_descriptor<T>{ field, std::forward<T>( value ) }; }
+
+	template<typename G, typename S>
+	struct member_descriptor
+	{
+		G getter;
+		S setter;
 		std::string_view name;
+		inline constexpr member_descriptor( std::string_view name, G&& getter, S&& setter ) : getter( std::forward<G>( getter ) ), setter( std::forward<S>( setter ) ), name( name ) {}
 
 		template<typename T>
-		static inline decltype( auto ) get( T* ptr ) 
+		inline void get( lua_State* L, T* value ) const
 		{
-			if constexpr ( detail::is_member_function_v<decltype( Value )> )
-			{
-				return detail::constant<Value>();
-			}
+			if constexpr ( detail::Callable<G, T*> )
+				stack::push( L, getter( value ) );
 			else
-			{
-				return ptr->*Value;
-			}
+				error( L, "attempt to index write-only field '%.*s'", name.length(), name.data() );
 		}
-		template<typename T>
-		static inline bool set( T* ptr, const stack_object& ref )
-		{ 
-			if constexpr ( detail::is_member_function_v<decltype( Value )> )
-			{
-				return false;
-			}
-			else
-			{
-				ptr->*Value = ref;
-				return true;
-			}
-		}
-	};
-	template<auto Getter, auto Setter = nil>
-	struct property 
-	{ 
-		std::string_view name; 
 
 		template<typename T>
-		static inline decltype(auto) get( T* ptr ) 
+		inline void set( lua_State* L, T* value, const stack_object& ref ) const
 		{
-			return ( ptr->*Getter ) ( );
-		}
-		template<typename T>
-		static inline bool set( T* ptr, const stack_object& ref )
-		{
-			if constexpr ( !std::is_same_v<decltype( Setter ), nil_t> )
-			{
-				ptr->*Setter( ref );
-				return true;
-			}
-			return false;
+			if constexpr ( detail::Callable<S, T*, const stack_object&> )
+				setter( value, ref );
+			else
+				error( L, "attempt to set read-only field '%.*s'", name.length(), name.data() );
 		}
 	};
+	template<typename G, typename S> member_descriptor( std::string_view, G&&, S&& )->member_descriptor<G, S>;
+
+	template<auto Field>
+	static constexpr auto member( std::string_view name )
+	{
+		if constexpr ( detail::is_member_function_v<decltype( Field )> )
+		{
+			return member_descriptor{
+				name,
+				[ ] ( auto* ) { return constant<Field>(); },
+				std::nullopt
+			};
+		}
+		else if constexpr ( detail::is_member_field_v<decltype( Field )> )
+		{
+			return member_descriptor{
+				name,
+				[ ] ( auto* p ) -> decltype( auto ) { return p->*Field; },
+				[ ] ( auto* p, const stack_object& value ) { p->*Field = value; }
+			};
+		}
+		else
+		{
+			static_assert( sizeof( Field ) == -1, "Invalid constant member type." );
+		}
+	}
+	template<typename G>
+	static constexpr auto property( std::string_view name, G&& getter )
+	{
+		if constexpr ( std::is_member_function_pointer_v<std::decay_t<G>> )
+		{
+			return property( name, [ g = std::forward<G>( getter ) ] ( auto&& v ) -> decltype( auto ) { return ( v.*g )(); } );
+		}
+		else
+		{
+			return member_descriptor{
+				name,
+				[ g = std::forward<G>( getter ) ]( auto* p ) -> decltype( auto ) { return g( *p ); },
+				std::nullopt
+			};
+		}
+	}
+	template<typename G, typename S>
+	static constexpr auto property( std::string_view name, G&& getter, S&& setter )
+	{
+		if constexpr ( std::is_member_function_pointer_v<std::decay_t<G>> )
+		{
+			return property( name, [ g = std::forward<G>( getter ) ]( auto&& v ) -> decltype( auto ) { return ( v.*g )( ); }, std::forward<S>( setter ) );
+		}
+		else if constexpr ( std::is_member_function_pointer_v<std::decay_t<S>> )
+		{
+			return property( name, std::forward<G>( getter ), [ s = std::forward<S>( setter ) ]( auto&& v, const stack_object& value ) { return ( v.*s )( value ); } );
+		}
+		else
+		{
+			return member_descriptor{
+				name,
+				[ g = std::forward<G>( getter ) ]( auto* p ) -> decltype( auto ) { return g( *p ); },
+				[ s = std::forward<S>( setter ) ]( auto* p, const stack_object& value ) { s( *p, value ); },
+			};
+		}
+	}
 
 	// Define the auto generated userdata metatable.
 	//
@@ -129,7 +175,7 @@ namespace ulua
 		{
 			if ( size_t i = name.size(); i <= max_field_length )
 			{
-				return detail::visit_index<max_field_length + 1>( i, [ & ] <size_t N> ( detail::const_tag<N> ) FORCE_INLINE
+				return detail::visit_index<max_field_length + 1>( i, [ & ] <size_t N> ( const_tag<N> ) FORCE_INLINE
 				{
 					bool found = false;
 					detail::enum_tuple( userdata_fields<T>, [ & ] ( const auto& field )
@@ -152,14 +198,33 @@ namespace ulua
 		static constexpr void find_field_or_die( lua_State* L, std::string_view name, F&& fn )
 		{
 			if ( !find_field( name, std::forward<F>( fn ) ) )
-				detail::error( L, "attempt to index undefined field '%.*s' for type '%.*s'", name.length(), name.data(), userdata_name<T>().length(), userdata_name<T>().data() );
+				error( L, "attempt to index undefined field '%.*s' for type '%.*s'", name.length(), name.data(), userdata_name<T>().length(), userdata_name<T>().data() );
 		}
+
+		// Implement a metatable finding helper.
+		//
+		template<meta M, typename F>
+		static constexpr bool find_meta( F&& fn )
+		{
+			bool found = false;
+			detail::enum_tuple( userdata_meta<T>, [ & ] ( const auto& value )
+			{
+				if ( !found && value.field == M )
+				{
+					fn( value.value );
+					found = true;
+				}
+			} );
+			return found;
+		}
+		template<meta M> static constexpr bool has_meta() { return find_meta<M>( [ & ] ( const auto& ) {} ); }
+		template<meta M> static inline bool set_meta( stack_table& tbl ) { return find_meta<M>( [ & ] ( const auto& value ) { tbl[ M ] = value; } ); }
 
 		// Indexing of the object.
 		//
 		static push_count index( lua_State* L, const userdata_wrapper<T>& u, const stack_object& k )
 		{
-			auto field_indexer = [ & ] <typename Field> ( const Field & field ) { stack::push( L, Field::get( u.get() ) ); };
+			auto field_indexer = [ & ] ( auto& field ) { field.get( L, u.get() ); };
 
 			if constexpr ( detail::Indexable<T> )
 			{
@@ -185,11 +250,7 @@ namespace ulua
 		}
 		static void newindex( lua_State* L, const userdata_wrapper<T>& u, const stack_object& k, const stack_object& v )
 		{
-			auto field_indexer = [ & ] <typename Field> ( const Field & field )
-			{
-				if ( !Field::set( u.get(), v ) )
-					detail::error( L, "attempt to modify constant field '%.*s' for type '%.*s'", field.name.length(), field.name.data(), userdata_name<T>().length(), userdata_name<T>().data() );
-			};
+			auto field_indexer = [ & ] ( auto& field ) { field.set( L, u.get(), v ); };
 
 			if constexpr ( detail::NewIndexable<T> )
 			{
@@ -205,7 +266,7 @@ namespace ulua
 				if ( std::is_same_v<K, const char*> || std::is_same_v<K, std::string_view> || std::is_same_v<K, std::string> ? is_string : k.is<K>() )
 					u.value()[ k.as<K>() ] = v.as<V>();
 				else
-					detail::type_error( L, k.slot(), "valid key" );
+					type_error( L, k.slot(), "valid key" );
 			}
 			else
 			{
@@ -272,19 +333,23 @@ namespace ulua
 			// Set all the always existing properties.
 			//
 			stack_table metatable{ L, i, weak_t{} };
-			metatable[ meta::metatable ] = 0;
-			metatable[ meta::newindex ] = detail::constant<&newindex>();
-			metatable[ meta::index ] = detail::constant<&index>();
-			metatable[ meta::gc ] = detail::constant<&gc>();
-			metatable[ meta::tostring ] = detail::constant<&tostring>();
-			metatable[ meta::eq ] = detail::constant<&eq>();
-			metatable[ meta::lt ] = detail::constant<&lt>();
-			metatable[ meta::le ] = detail::constant<&le>();
-			metatable[ meta::name ] = userdata_name<T>();
+			if ( !set_meta<meta::metatable>( metatable ) ) metatable[ meta::metatable ] = 0;
+			if ( !set_meta<meta::newindex>( metatable ) )  metatable[ meta::newindex ] = constant<&newindex>();
+			if ( !set_meta<meta::index>( metatable ) )     metatable[ meta::index ] = constant<&index>();
+			if ( !set_meta<meta::gc>( metatable ) )        metatable[ meta::gc ] = constant<&gc>();
+			if ( !set_meta<meta::tostring>( metatable ) )  metatable[ meta::tostring ] = constant<&tostring>();
+			if ( !set_meta<meta::eq>( metatable ) )        metatable[ meta::eq ] = constant<&eq>();
+			if ( !set_meta<meta::lt>( metatable ) )        metatable[ meta::lt ] = constant<&lt>();
+			if ( !set_meta<meta::le>( metatable ) )        metatable[ meta::le ] = constant<&le>();
+			if ( !set_meta<meta::name>( metatable ) )      metatable[ meta::name ] = userdata_name<T>();
 
 			// If the object has a length/size getters or is iterable, define the function.
 			//
-			if constexpr ( detail::HasLength<T> || detail::HasSize<T> || detail::Iterable<T> )
+			if constexpr ( has_meta<meta::len>() )
+			{
+				set_meta<meta::len>( metatable );
+			}
+			else if constexpr ( detail::HasLength<T> || detail::HasSize<T> || detail::Iterable<T> )
 			{
 				metatable[ meta::len ] = [ ] ( const userdata_wrapper<T>& a )
 				{
@@ -297,76 +362,99 @@ namespace ulua
 				};
 			}
 
-			// If the object is key/value iterable, define the function.
+			// Set user-defined pairs/ipairs.
 			//
-			if constexpr ( detail::KvIterable<T> )
+			if constexpr ( has_meta<meta::pairs>() )
 			{
-				metatable[ meta::pairs ]  = [ ] ( T* a )
-				{
-					return std::make_tuple(
-						[ it = std::begin( *a ) ] ( lua_State* L, const userdata_wrapper<T>& a, stack_reference ) mutable
-						{
-							if ( it != std::end( a.value() ) )
-							{
-								stack::push( L, it->first );
-								stack::push( L, it->second );
-								++it;
-								return push_count{ 2 };
-							}
-							else
-							{
-								return push_count{ 0 };
-							}
-						},
-						a,
-						nil
-					);
-				};
+				set_meta<meta::pairs>( metatable );
+				set_meta<meta::ipairs>( metatable );
 			}
-			// If the object is index iterable, define the function.
-			//
-			else if constexpr ( detail::Iterable<T> )
+			else
 			{
-				metatable[ meta::ipairs ] = [ ] ( T* a )
+				// If the object is key/value iterable, define the function.
+				//
+				if constexpr ( detail::KvIterable<T> )
 				{
-					return std::make_tuple(
-						[ it = std::begin( *a ) ] ( lua_State* L, const userdata_wrapper<T>& a, int key ) mutable
-						{
-							if ( it != std::end( a.value() ) )
+					metatable[ meta::pairs ]  = [ ] ( T* a )
+					{
+						return std::make_tuple(
+							[ it = std::begin( *a ) ] ( lua_State* L, const userdata_wrapper<T>& a, stack_reference ) mutable
 							{
-								stack::push( L, key + 1 );
-								stack::push( L, *it );
-								++it;
-								return push_count{ 2 };
-							}
-							else
+								if ( it != std::end( a.value() ) )
+								{
+									stack::push( L, it->first );
+									stack::push( L, it->second );
+									++it;
+									return push_count{ 2 };
+								}
+								else
+								{
+									return push_count{ 0 };
+								}
+							},
+							a,
+							nil
+						);
+					};
+				}
+				// If the object is index iterable, define the function.
+				//
+				else if constexpr ( detail::Iterable<T> )
+				{
+					metatable[ meta::ipairs ] = [ ] ( T* a )
+					{
+						return std::make_tuple(
+							[ it = std::begin( *a ) ] ( lua_State* L, const userdata_wrapper<T>& a, int key ) mutable
 							{
-								return push_count{ 0 };
-							}
-						},
-						a,
-						-1
-					);
-				};
-				metatable[ meta::pairs ] = metatable[ meta::ipairs ];
+								if ( it != std::end( a.value() ) )
+								{
+									stack::push( L, key + 1 );
+									stack::push( L, *it );
+									++it;
+									return push_count{ 2 };
+								}
+								else
+								{
+									return push_count{ 0 };
+								}
+							},
+							a,
+							-1
+						);
+					};
+					metatable[ meta::pairs ] = metatable[ meta::ipairs ];
+				}
 			}
 
 			// Define the arithmetic operators where possible.
 			//
-			if constexpr ( detail::Negable<T> )
+			if constexpr ( has_meta<meta::unm>() )
+			{
+				set_meta<meta::unm>( metatable );
+			}
+			else if constexpr ( detail::Negable<T> )
 			{
 				metatable[ meta::unm ] = [ ] ( const userdata_wrapper<T>& a ) -> decltype( auto ) { return -a.value(); };
 			}
-			if constexpr ( detail::Addable<T, T> )
+			if constexpr ( has_meta<meta::concat>() )
+			{
+				set_meta<meta::concat>( metatable );
+			}
+			else if constexpr ( detail::Addable<T, T> )
 			{
 				metatable[ meta::concat ] = [ ] ( const userdata_wrapper<T>& a, const userdata_wrapper<T>& b ) -> decltype( auto )
 				{
 					return a.value() + b.value();
 				};
 			}
-			if constexpr ( detail::Addable<T, T> || detail::Addable<T, double> )
+
+			if constexpr ( has_meta<meta::add>() )
 			{
-				metatable[ meta::add ] = [ ] ( const userdata_wrapper<T>& a, stack_object obj ) -> decltype( auto )
+				set_meta<meta::add>( metatable );
+			}
+			else if constexpr ( detail::Addable<T, T> || detail::Addable<T, double> )
+			{
+				metatable[ meta::add ] = [ ] ( const userdata_wrapper<T>& a, const stack_object& obj ) -> decltype( auto )
 				{
 					if constexpr ( detail::Addable<T, T> )
 						if ( obj.is<userdata_wrapper<T>>() )
@@ -382,12 +470,17 @@ namespace ulua
 						expected = "number";
 					else
 						expected = std::string{ userdata_name<T>() };
-					detail::type_error( obj.state(), obj.slot(), expected.data() );
+					type_error( obj.state(), obj.slot(), expected.data() );
 				};
 			}
-			if constexpr ( detail::Subable<T, T> || detail::Subable<T, double> )
+			
+			if constexpr ( has_meta<meta::sub>() )
 			{
-				metatable[ meta::sub ] = [ ] ( const userdata_wrapper<T>& a, stack_object obj ) -> decltype( auto )
+				set_meta<meta::sub>( metatable );
+			}
+			else if constexpr ( detail::Subable<T, T> || detail::Subable<T, double> )
+			{
+				metatable[ meta::sub ] = [ ] ( const userdata_wrapper<T>& a, const stack_object& obj ) -> decltype( auto )
 				{
 					if constexpr ( detail::Subable<T, T> )
 						if ( obj.is<userdata_wrapper<T>>() )
@@ -403,12 +496,17 @@ namespace ulua
 						expected = "number";
 					else
 						expected = std::string{ userdata_name<T>() };
-					detail::type_error( obj.state(), obj.slot(), expected.data() );
+					type_error( obj.state(), obj.slot(), expected.data() );
 				};
 			}
-			if constexpr ( detail::Mulable<T, T> || detail::Mulable<T, double> )
+
+			if constexpr ( has_meta<meta::mul>() )
 			{
-				metatable[ meta::mul ] = [ ] ( const userdata_wrapper<T>& a, stack_object obj ) -> decltype( auto )
+				set_meta<meta::mul>( metatable );
+			}
+			else if constexpr ( detail::Mulable<T, T> || detail::Mulable<T, double> )
+			{
+				metatable[ meta::mul ] = [ ] ( const userdata_wrapper<T>& a, const stack_object& obj ) -> decltype( auto )
 				{
 					if constexpr ( detail::Mulable<T, T> )
 						if ( obj.is<userdata_wrapper<T>>() )
@@ -424,12 +522,17 @@ namespace ulua
 						expected = "number";
 					else
 						expected = std::string{ userdata_name<T>() };
-					detail::type_error( obj.state(), obj.slot(), expected.data() );
+					type_error( obj.state(), obj.slot(), expected.data() );
 				};
 			}
-			if constexpr ( detail::Divable<T, T> || detail::Divable<T, double> )
+
+			if constexpr ( has_meta<meta::div>() )
 			{
-				metatable[ meta::div ] = [ ] ( const userdata_wrapper<T>& a, stack_object obj ) -> decltype( auto )
+				set_meta<meta::div>( metatable );
+			}
+			else if constexpr ( detail::Divable<T, T> || detail::Divable<T, double> )
+			{
+				metatable[ meta::div ] = [ ] ( const userdata_wrapper<T>& a, const stack_object& obj ) -> decltype( auto )
 				{
 					if constexpr ( detail::Divable<T, T> )
 						if ( obj.is<userdata_wrapper<T>>() )
@@ -445,12 +548,17 @@ namespace ulua
 						expected = "number";
 					else
 						expected = std::string{ userdata_name<T>() };
-					detail::type_error( obj.state(), obj.slot(), expected.data() );
+					type_error( obj.state(), obj.slot(), expected.data() );
 				};
 			}
-			if constexpr ( detail::Idivable<T, T> || detail::Idivable<T, int64_t> )
+
+			if constexpr ( has_meta<meta::idiv>() )
 			{
-				metatable[ meta::idiv ] = [ ] ( const userdata_wrapper<T>& a, stack_object obj ) -> size_t
+				set_meta<meta::idiv>( metatable );
+			}
+			else if constexpr ( detail::Idivable<T, T> || detail::Idivable<T, int64_t> )
+			{
+				metatable[ meta::idiv ] = [ ] ( const userdata_wrapper<T>& a, const stack_object& obj ) -> size_t
 				{
 					if constexpr ( detail::Idivable<T, T> )
 						if ( obj.is<userdata_wrapper<T>>() )
@@ -466,12 +574,16 @@ namespace ulua
 						expected = "number";
 					else
 						expected = std::string{ userdata_name<T>() };
-					detail::type_error( obj.state(), obj.slot(), expected.data() );
+					type_error( obj.state(), obj.slot(), expected.data() );
 				};
 			}
-			if constexpr ( detail::Modable<T, T> || detail::Modable<T, int64_t> )
+			if constexpr ( has_meta<meta::mod>() )
 			{
-				metatable[ meta::mod ] = [ ] ( const userdata_wrapper<T>& a, stack_object obj ) -> decltype( auto )
+				set_meta<meta::mod>( metatable );
+			}
+			else if constexpr ( detail::Modable<T, T> || detail::Modable<T, int64_t> )
+			{
+				metatable[ meta::mod ] = [ ] ( const userdata_wrapper<T>& a, const stack_object& obj ) -> decltype( auto )
 				{
 					if constexpr ( detail::Modable<T, T> )
 						if ( obj.is<userdata_wrapper<T>>() )
@@ -487,12 +599,16 @@ namespace ulua
 						expected = "number";
 					else
 						expected = std::string{ userdata_name<T>() };
-					detail::type_error( obj.state(), obj.slot(), expected.data() );
+					type_error( obj.state(), obj.slot(), expected.data() );
 				};
 			}
-			if constexpr ( detail::Powable<T, T> || detail::Powable<T, int64_t> )
+			if constexpr ( has_meta<meta::pow>() )
 			{
-				metatable[ meta::pow ] = [ ] ( const userdata_wrapper<T>& a, stack_object obj ) -> decltype( auto )
+				set_meta<meta::pow>( metatable );
+			}
+			else if constexpr ( detail::Powable<T, T> || detail::Powable<T, int64_t> )
+			{
+				metatable[ meta::pow ] = [ ] ( const userdata_wrapper<T>& a, const stack_object& obj ) -> decltype( auto )
 				{
 					if constexpr ( detail::Powable<T, T> )
 						if ( obj.is<userdata_wrapper<T>>() )
@@ -508,7 +624,7 @@ namespace ulua
 						expected = "number";
 					else
 						expected = std::string{ userdata_name<T>() };
-					detail::type_error( obj.state(), obj.slot(), expected.data() );
+					type_error( obj.state(), obj.slot(), expected.data() );
 				};
 			}
 		}

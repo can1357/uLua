@@ -1,9 +1,5 @@
 #pragma once
-#include <lua.hpp>
-extern "C" {
-	#include <lj_obj.h>
-};
-
+#include "lua_api.hpp"
 #include <tuple>
 #include <algorithm>
 #include <utility>
@@ -15,9 +11,20 @@ extern "C" {
 
 #define ULUA_DEBUG 1 // TODO: Remove
 
-namespace ulua::detail
+namespace ulua
 {
-	// Build mode.
+	// Constant tag.
+	//
+	template<auto V>
+	struct const_tag
+	{
+		using type = decltype( V );
+		static constexpr type value = V;
+		inline constexpr operator type() { return value; };
+	};
+	template<auto V> inline constexpr const_tag<V> constant() { return {}; }
+
+	// Build mode check.
 	//
 	static constexpr bool is_debug()
 	{
@@ -32,263 +39,272 @@ namespace ulua::detail
 #endif
 	}
 
-	// Compile time type namer.
-	//
-	template<typename T>
-	struct ctti_namer
+	namespace detail
 	{
-		template<typename __id__ = T>
-		static constexpr std::string_view __id__()
+		// Compile time type namer.
+		//
+		template<typename T>
+		struct ctti_namer
 		{
-			auto [sig, begin, delta, end] = std::tuple{
+			template<typename __id__ = T>
+			static constexpr std::string_view __id__()
+			{
+				auto [sig, begin, delta, end] = std::tuple{
 #if defined(__GNUC__) || defined(__clang__)
-				std::string_view{ __PRETTY_FUNCTION__ }, std::string_view{ "__id__" }, +3, "]"
+					std::string_view{ __PRETTY_FUNCTION__ }, std::string_view{ "__id__" }, +3, "]"
 #else
-				std::string_view{ __FUNCSIG__ },         std::string_view{ "__id__" }, +1, ">"
+					std::string_view{ __FUNCSIG__ },         std::string_view{ "__id__" }, +1, ">"
 #endif
-			};
+				};
 
-			// Find the beginning of the name.
-			//
-			size_t f = sig.size();
-			while ( sig.substr( --f, begin.size() ).compare( begin ) != 0 )
-				if ( f == 0 ) return "";
-			f += begin.size() + delta;
+				// Find the beginning of the name.
+				//
+				size_t f = sig.size();
+				while ( sig.substr( --f, begin.size() ).compare( begin ) != 0 )
+					if ( f == 0 ) return "";
+				f += begin.size() + delta;
 
-			// Find the end of the string.
-			//
-			auto l = sig.find_first_of( end, f );
-			if ( l == std::string::npos )
-				return "";
+				// Find the end of the string.
+				//
+				auto l = sig.find_first_of( end, f );
+				if ( l == std::string::npos )
+					return "";
 
-			// Return the value.
-			//
-			return sig.substr( f, l - f );
-		}
-		inline constexpr operator std::string_view() const { return ctti_namer<T>::__id__<T>(); }
-	};
+				// Return the value.
+				//
+				return sig.substr( f, l - f );
+			}
+			inline constexpr operator std::string_view() const { return ctti_namer<T>::__id__<T>(); }
+		};
 
-	// Constant tag.
-	//
-	template<auto V>
-	struct const_tag
-	{
-		using type = decltype( V );
-		static constexpr type value = V;
-		inline constexpr operator type() { return value; };
-	};
-	template<auto V> inline constexpr const_tag<V> constant() { return {}; }
+		// Checks if the type is a tuple or a pair.
+		//
+		template<typename T>               struct is_tuple { static constexpr bool value = false; };
+		template<typename... Tx>           struct is_tuple<std::tuple<Tx...>> { static constexpr bool value = true; };
+		template<typename T1, typename T2> struct is_tuple<std::pair<T1, T2>> { static constexpr bool value = true; };
+		template<typename T>
+		static constexpr bool is_tuple_v = is_tuple<T>::value;
 
-	// Checks if the type is a tuple or a pair.
-	//
-	template<typename T>               struct is_tuple { static constexpr bool value = false; };
-	template<typename... Tx>           struct is_tuple<std::tuple<Tx...>> { static constexpr bool value = true; };
-	template<typename T1, typename T2> struct is_tuple<std::pair<T1, T2>> { static constexpr bool value = true; };
-	template<typename T>
-	static constexpr bool is_tuple_v = is_tuple<T>::value;
-
-	// Checks if the type is a variant.
-	//
-	template<typename T>               struct is_variant { static constexpr bool value = false; };
-	template<typename... Tx>           struct is_variant<std::variant<Tx...>> { static constexpr bool value = true; };
-	template<typename T>
-	static constexpr bool is_variant_v = is_variant<T>::value;
+		// Checks if the type is a variant.
+		//
+		template<typename T>               struct is_variant { static constexpr bool value = false; };
+		template<typename... Tx>           struct is_variant<std::variant<Tx...>> { static constexpr bool value = true; };
+		template<typename T>
+		static constexpr bool is_variant_v = is_variant<T>::value;
 	
-	// Checks if the type is a member function or not.
-	//
-	template<typename T>                                 struct is_member_function { static constexpr bool value = false; };
-	template<typename C, typename R, typename... Tx>     struct is_member_function<R(C::*)(Tx...)>             { static constexpr bool value = true; };
-	template<typename C, typename R, typename... Tx>     struct is_member_function<R(C::*)(Tx..., ...)>        { static constexpr bool value = true; };
-	template<typename C, typename R, typename... Tx>     struct is_member_function<R(C::*)(Tx...) const>       { static constexpr bool value = true; };
-	template<typename C, typename R, typename... Tx>     struct is_member_function<R(C::*)(Tx..., ...)  const> { static constexpr bool value = true; };
-	template<typename T>
-	static constexpr bool is_member_function_v = is_member_function<T>::value;
+		// Checks if the type is a member function or not.
+		//
+		template<typename T>                                 struct is_member_function { static constexpr bool value = false; };
+		template<typename C, typename R, typename... Tx>     struct is_member_function<R(C::*)(Tx...)>             { static constexpr bool value = true; };
+		template<typename C, typename R, typename... Tx>     struct is_member_function<R(C::*)(Tx..., ...)>        { static constexpr bool value = true; };
+		template<typename C, typename R, typename... Tx>     struct is_member_function<R(C::*)(Tx...) const>       { static constexpr bool value = true; };
+		template<typename C, typename R, typename... Tx>     struct is_member_function<R(C::*)(Tx..., ...)  const> { static constexpr bool value = true; };
+		template<typename T>
+		static constexpr bool is_member_function_v = is_member_function<T>::value;
+	
+		// Checks if the type is a member field or not.
+		//
+		template<typename T>                                 struct is_member_field { static constexpr bool value = false; };
+		template<typename C, typename T>                     struct is_member_field<T C::*> { static constexpr bool value = true; };
+		template<typename T>
+		static constexpr bool is_member_field_v = is_member_field<T>::value;
 
-	// Constant series.
-	//
-	template<size_t N, typename F, size_t I = 0>
-	static constexpr void enum_indices( F&& fn )
-	{
-		if constexpr ( I < N )
+		// Callable check.
+		//
+		template<typename T, typename... Args>
+		concept Callable = requires( T&& x ) { x( std::declval<Args>()... ); };
+
+		// Constant series.
+		//
+		template<size_t N, typename F, size_t I = 0>
+		static constexpr void enum_indices( F&& fn )
 		{
-			fn( const_tag<I>{} );
-			return enum_indices<N, F, I + 1>( std::forward<F>( fn ) );
+			if constexpr ( I < N )
+			{
+				fn( const_tag<I>{} );
+				return enum_indices<N, F, I + 1>( std::forward<F>( fn ) );
+			}
 		}
-	}
 
-	// Tuple enumeration.
-	//
-	template<typename Tuple, typename F> requires is_tuple_v<Tuple>
-	static constexpr void enum_tuple( Tuple&& tuple, F&& fn )
-	{
-		enum_indices<std::tuple_size_v<Tuple>>( [ & ] <size_t N> ( const_tag<N> ) { fn( std::move( std::get<N>( tuple ) ) ); } );
-	}
-	template<typename Tuple, typename F> requires is_tuple_v<std::remove_const_t<Tuple>>
-	static constexpr void enum_tuple( Tuple& tuple, F&& fn )
-	{
-		enum_indices<std::tuple_size_v<std::remove_const_t<Tuple>>>( [ & ] <size_t N> ( const_tag<N> ) { fn( std::get<N>( tuple ) ); } );
-	}
+		// Tuple enumeration.
+		//
+		template<typename Tuple, typename F> requires is_tuple_v<Tuple>
+		static constexpr void enum_tuple( Tuple&& tuple, F&& fn )
+		{
+			enum_indices<std::tuple_size_v<Tuple>>( [ & ] <size_t N> ( const_tag<N> ) { fn( std::move( std::get<N>( tuple ) ) ); } );
+		}
+		template<typename Tuple, typename F> requires is_tuple_v<std::remove_const_t<Tuple>>
+		static constexpr void enum_tuple( Tuple& tuple, F&& fn )
+		{
+			enum_indices<std::tuple_size_v<std::remove_const_t<Tuple>>>( [ & ] <size_t N> ( const_tag<N> ) { fn( std::get<N>( tuple ) ); } );
+		}
 
-	// Ordering helper.
-	//
-	template<typename... Tx>
-	struct ordered_forward_as_tuple
-	{
-		std::tuple<Tx...> value;
-		inline constexpr ordered_forward_as_tuple( Tx&&... values ) : value( std::forward<Tx>( values )... ) {}
-		inline auto unwrap() && { return std::move( value ); }
-	};
-	template<typename... Tx>
-	ordered_forward_as_tuple( Tx&&... )->ordered_forward_as_tuple<Tx...>;
+		// Ordering helper.
+		//
+		template<typename... Tx>
+		struct ordered_forward_as_tuple
+		{
+			std::tuple<Tx...> value;
+			inline constexpr ordered_forward_as_tuple( Tx&&... values ) : value( std::forward<Tx>( values )... ) {}
+			inline auto unwrap() && { return std::move( value ); }
+		};
+		template<typename... Tx>
+		ordered_forward_as_tuple( Tx&&... )->ordered_forward_as_tuple<Tx...>;
 	
-	template<typename T1, typename T2>
-	struct ordered_forward_as_pair
-	{
-		std::pair<T1, T2> value;
-		inline constexpr ordered_forward_as_pair( T1&& a, T2&& b ) : value( std::forward<T1>( a ), std::forward<T2>( b ) ) {}
-		inline auto unwrap() && { return std::move( value ); }
-	};
-	template<typename T1, typename T2>
-	ordered_forward_as_pair( T1&&, T2&& )->ordered_forward_as_pair<T1, T2>;
+		template<typename T1, typename T2>
+		struct ordered_forward_as_pair
+		{
+			std::pair<T1, T2> value;
+			inline constexpr ordered_forward_as_pair( T1&& a, T2&& b ) : value( std::forward<T1>( a ), std::forward<T2>( b ) ) {}
+			inline auto unwrap() && { return std::move( value ); }
+		};
+		template<typename T1, typename T2>
+		ordered_forward_as_pair( T1&&, T2&& )->ordered_forward_as_pair<T1, T2>;
 
-	// Function traits.
-	//
-	template<typename F>
-	struct function_traits;
+		// Function traits.
+		//
+		template<typename F>
+		struct function_traits;
 
-	// Function pointers:
-	//
-	template<typename R, typename... Tx>
-	struct function_traits<R(*)(Tx...)>
-	{
-		static constexpr bool is_lambda = false;
-		static constexpr bool is_vararg = false;
+		// Function pointers:
+		//
+		template<typename R, typename... Tx>
+		struct function_traits<R(*)(Tx...)>
+		{
+			static constexpr bool is_lambda = false;
+			static constexpr bool is_vararg = false;
 
-		using return_type = R;
-		using arguments =   std::tuple<Tx...>;
-		using owner =       void;
-	};
-	template<typename R, typename... Tx>
-	struct function_traits<R(*)(Tx..., ...)> : function_traits<R(*)(Tx...)>
-	{
-		static constexpr bool is_vararg = true;
-	};
+			using return_type = R;
+			using arguments =   std::tuple<Tx...>;
+			using owner =       void;
+		};
+		template<typename R, typename... Tx>
+		struct function_traits<R(*)(Tx..., ...)> : function_traits<R(*)(Tx...)>
+		{
+			static constexpr bool is_vararg = true;
+		};
 
-	// Member functions:
-	//
-	template<typename C, typename R, typename... Tx>
-	struct function_traits<R(C::*)(Tx...)>
-	{
-		static constexpr bool is_lambda = false;
-		static constexpr bool is_vararg = false;
+		// Member functions:
+		//
+		template<typename C, typename R, typename... Tx>
+		struct function_traits<R(C::*)(Tx...)>
+		{
+			static constexpr bool is_lambda = false;
+			static constexpr bool is_vararg = false;
 
-		using return_type = R;
-		using arguments =   std::tuple<Tx...>;
-		using owner =       C;
-	};
-	template<typename C, typename R, typename... Tx>
-	struct function_traits<R(C::*)(Tx..., ...)> : function_traits<R(C::*)(Tx...)>
-	{
-		static constexpr bool is_vararg = true;
-	};
-	template<typename C, typename R, typename... Tx>
-	struct function_traits<R(C::*)(Tx...) const>
-	{
-		static constexpr bool is_lambda = false;
-		static constexpr bool is_vararg = false;
+			using return_type = R;
+			using arguments =   std::tuple<Tx...>;
+			using owner =       C;
+		};
+		template<typename C, typename R, typename... Tx>
+		struct function_traits<R(C::*)(Tx..., ...)> : function_traits<R(C::*)(Tx...)>
+		{
+			static constexpr bool is_vararg = true;
+		};
+		template<typename C, typename R, typename... Tx>
+		struct function_traits<R(C::*)(Tx...) const>
+		{
+			static constexpr bool is_lambda = false;
+			static constexpr bool is_vararg = false;
 
-		using return_type = R;
-		using arguments =   std::tuple<Tx...>;
-		using owner =       const C;
-	};
-	template<typename C, typename R, typename... Tx>
-	struct function_traits<R(C::*)(Tx..., ...) const> : function_traits<R(C::*)(Tx...) const>
-	{
-		static constexpr bool is_vararg = true;
-	};
+			using return_type = R;
+			using arguments =   std::tuple<Tx...>;
+			using owner =       const C;
+		};
+		template<typename C, typename R, typename... Tx>
+		struct function_traits<R(C::*)(Tx..., ...) const> : function_traits<R(C::*)(Tx...) const>
+		{
+			static constexpr bool is_vararg = true;
+		};
 
-	// Lambdas or callables.
-	//
-	//template<typename T> struct validate_member_reference;
-	//template<typename C, typename Ret, typename... Tx> struct validate_member_reference<Ret( C::* )( Tx... )> { validate_member_reference( ... ) {} };
-	//template<typename C, typename Ret, typename... Tx> struct validate_member_reference<Ret( C::* )( Tx..., ... )>{ validate_member_reference( ... ) {} };
-	//template<typename C, typename Ret, typename... Tx> struct validate_member_reference<Ret( C::* )( Tx... ) const>{ validate_member_reference( ... ) {} };
-	//template<typename C, typename Ret, typename... Tx> struct validate_member_reference<Ret( C::* )( Tx..., ... ) const>{ validate_member_reference( ... ) {} };
-	//template<typename T> validate_member_reference( T )->validate_member_reference<T>;
+		// Lambdas or callables.
+		//
+		template<typename F>
+		concept CallableObject = requires{ is_member_function_v<decltype(&F::operator())>; };
 
-	template<typename F>
-	concept CallableObject = requires{ is_member_function_v<decltype(&F::operator())>; };
+		template<CallableObject F>
+		struct function_traits<F> : function_traits<decltype( &F::operator() )>
+		{
+			static constexpr bool is_lambda = true;
+		};
 
-	template<CallableObject F>
-	struct function_traits<F> : function_traits<decltype( &F::operator() )>
-	{
-		static constexpr bool is_lambda = true;
-	};
-
-	template<typename F>
-	concept Invocable = requires{ typename function_traits<F>::arguments; };
+		template<typename F>
+		concept Invocable = requires{ typename function_traits<F>::arguments; };
 
 	// Compiler specifics.
 	//
 #if defined(__GNUC__) || defined(__clang__)
-	#define ULUA_COLD [[gnu::noinline, gnu::cold]]
+		#define ULUA_COLD [[gnu::noinline, gnu::cold]]
 #elif _MSC_VER
-	#define ULUA_COLD __declspec(noinine)
+		#define ULUA_COLD __declspec(noinine)
 #endif
 	
-	inline void breakpoint()
-	{
+		inline void breakpoint()
+		{
 #if __has_builtin(__builtin_debugtrap)
-		__builtin_debugtrap();
+			__builtin_debugtrap();
 #elif defined(_MSC_VER)
-		__debugbreak();
+			__debugbreak();
 #endif
-	}
-	inline constexpr void assume_true( bool condition )
-	{
+		}
+		inline constexpr void assume_true( bool condition )
+		{
 #if __has_builtin(__builtin_assume)
-		__builtin_assume( condition );
+			__builtin_assume( condition );
 #elif defined(_MSC_VER)
-		__assume( condition );
+			__assume( condition );
 #endif
-	}
-	inline void assume_unreachable [[noreturn]] ()
-	{
+		}
+		inline void assume_unreachable [[noreturn]] ()
+		{
 #if __has_builtin(__builtin_unreachable)
-		__builtin_unreachable();
+			__builtin_unreachable();
 #else
-		assume_true( false );
+			assume_true( false );
 #endif
-	}
-	template<size_t N>
-	inline bool const_eq( const void* a, const void* b )
-	{
-#if __has_builtin(__builtin_memcmp)
-		return !__builtin_memcmp( a, b, N );
-#else
-		using T = std::array<uint8_t, N>;
-		return *( const T* ) a == *( const T* ) b;
-#endif
-	}
+		}
+		template<size_t N>
+		inline bool const_eq( const char* a, const char* b )
+		{
+			auto interleave = [ & ] <typename T> ( std::type_identity<T> )
+			{
+				constexpr size_t delta = N - sizeof( T );
+				T v1 = *( const T* ) b;
+				v1 ^= *( const T* ) a;
+				if constexpr ( delta != 0 )
+				{
+					using T2 = 
+							std::conditional_t<delta == 1, uint8_t, 
+							std::conditional_t<delta == 2, uint16_t,
+							std::conditional_t<delta == 4, uint32_t,
+							std::conditional_t<delta == 8, uint64_t, void>>>>;
+					if constexpr ( std::is_void_v<T2> )
+					{
+						T2 v2 = *( const T2* ) ( b + sizeof( T ) );
+						v2 ^= *( const T2* ) ( a + sizeof( T ) );
+						v1 |= v2;
+					}
+					else
+					{
+						T v2 = *( const T* ) ( b + delta );
+						v2 ^= *( const T* ) ( a + delta );
+						v1 |= v2;
+					}
+				}
+				return v1 == 0;
+			};
+			if constexpr ( N >= 16 )     return const_eq<8>( a, b ) && const_eq<N - 8>( a + 8, b + 8 );
+			else if constexpr ( N >= 8 ) return interleave( std::type_identity<uint64_t>{} );
+			else if constexpr ( N >= 4 ) return interleave( std::type_identity<uint32_t>{} );
+			else if constexpr ( N >= 2 ) return interleave( std::type_identity<uint16_t>{} );
+			else if constexpr ( N >= 1 ) return interleave( std::type_identity<uint8_t>{} );
+			else return true;
+		}
 
-	// Errors.
-	//
-	template<typename... Tx>
-	ULUA_COLD inline void error [[noreturn]] ( lua_State* L, const char* fmt, Tx... args )
-	{
-		luaL_error( L, fmt, args... );
-		assume_unreachable();
-	}
-	ULUA_COLD inline void type_error [[noreturn]] ( lua_State* L, int arg, const char* type )
-	{
-		luaL_typerror( L, arg, type );
-		assume_unreachable();
-	}
-
-	// Visit strategies:
-	//
-	namespace impl
-	{
+		// Visit strategies:
+		//
+		namespace impl
+		{
 #define __visit_8(i, x)		\
 		case (i+0): x(i+0);	\
 		case (i+1): x(i+1);	\
@@ -317,59 +333,74 @@ namespace ulua::detail
 		__visit_64(i+(64*6), x)    \
 		__visit_64(i+(64*7), x)
 #define __visitor(i) 						       \
-		if constexpr ( ( i ) < Lim ) {	       \
-			return fn( const_tag<size_t(i)>{} ); \
-		}											       \
-		unreachable();							       \
+      if constexpr ( ( i ) < Lim ) {	       \
+      	return fn( ulua::constant<size_t(i)>() ); \
+      }											       \
+      assume_unreachable();
 
-		template<size_t Lim, typename F> inline static constexpr decltype( auto ) numeric_visit_8( size_t n, F&& fn ) { switch ( n ) { __visit_8( 0, __visitor ); default: assume_unreachable(); } }
-		template<size_t Lim, typename F> inline static constexpr decltype( auto ) numeric_visit_64( size_t n, F&& fn ) { switch ( n ) { __visit_64( 0, __visitor ); default: assume_unreachable(); } }
-		template<size_t Lim, typename F> inline static constexpr decltype( auto ) numeric_visit_512( size_t n, F&& fn ) { switch ( n ) { __visit_512( 0, __visitor ); default: assume_unreachable(); } }
+			template<size_t Lim, typename F> inline static constexpr decltype( auto ) numeric_visit_8( size_t n, F&& fn ) { switch ( n ) { __visit_8( 0, __visitor ); default: assume_unreachable(); } }
+			template<size_t Lim, typename F> inline static constexpr decltype( auto ) numeric_visit_64( size_t n, F&& fn ) { switch ( n ) { __visit_64( 0, __visitor ); default: assume_unreachable(); } }
+			template<size_t Lim, typename F> inline static constexpr decltype( auto ) numeric_visit_512( size_t n, F&& fn ) { switch ( n ) { __visit_512( 0, __visitor ); default: assume_unreachable(); } }
 #undef __visitor
 #undef __visit_512
 #undef __visit_64
 #undef __visit_8
+		};
+
+		// Strict numeric visit.
+		//
+		template<size_t Count, typename F>
+		inline static constexpr decltype( auto ) visit_index( size_t n, F&& fn )
+		{
+			if constexpr ( Count <= 8 )
+				return impl::numeric_visit_8<Count>( n, std::forward<F>( fn ) );
+			else if constexpr ( Count <= 64 )
+				return impl::numeric_visit_64<Count>( n, std::forward<F>( fn ) );
+			else if constexpr ( Count <= 512 )
+				return impl::numeric_visit_512<Count>( n, std::forward<F>( fn ) );
+			else
+			{
+				// Binary search.
+				//
+				constexpr size_t Midline = Count / 2;
+				if ( n >= Midline )
+					return visit_index<Count - Midline>( n - Midline, [ & ] <size_t N> ( const_tag<N> ) { fn( const_tag<N + Midline>{} ); } );
+				else
+					return visit_index<Midline>( n, std::forward<F>( fn ) );
+			}
+		}
+
+		// Variant visitor.
+		//
+		template<typename Variant, typename F> requires is_variant_v<Variant>
+		static constexpr decltype( auto ) visit_variant( Variant&& var, F&& fn )
+		{
+			return visit_index<std::variant_size_v<Variant>>( var.index(), [ & ] <size_t N> ( const_tag<N> ) -> decltype( auto )
+			{ 
+				return fn( std::move( std::get<N>( var ) ) );
+			} );
+		}
+		template<typename Variant, typename F> requires is_variant_v<std::remove_const_t<Variant>>
+		static constexpr decltype( auto ) visit_variant( Variant& var, F&& fn )
+		{
+			return visit_index<std::variant_size_v<std::remove_const_t<Variant>>>( var.index(), [ & ] <size_t N> ( const_tag<N> ) -> decltype( auto )
+			{ 
+				return fn( std::get<N>( var ) );
+			} );
+		}
 	};
 
-	// Strict numeric visit.
+	// Errors.
 	//
-	template<size_t Count, typename F>
-	inline static constexpr decltype( auto ) visit_index( size_t n, F&& fn )
+	template<typename... Tx>
+	ULUA_COLD inline void error [[noreturn]] ( lua_State* L, const char* fmt, Tx... args )
 	{
-		if constexpr ( Count <= 8 )
-			return impl::numeric_visit_8<Count>( n, std::forward<F>( fn ) );
-		else if constexpr ( Count <= 64 )
-			return impl::numeric_visit_64<Count>( n, std::forward<F>( fn ) );
-		else if constexpr ( Count <= 512 )
-			return impl::numeric_visit_512<Count>( n, std::forward<F>( fn ) );
-		else
-		{
-			// Binary search.
-			//
-			constexpr size_t Midline = Count / 2;
-			if ( n >= Midline )
-				return visit_index<Count - Midline>( n - Midline, [ & ] <size_t N> ( const_tag<N> ) { fn( const_tag<N + Midline>{} ); } );
-			else
-				return visit_index<Midline>( n, std::forward<F>( fn ) );
-		}
+		luaL_error( L, fmt, args... );
+		detail::assume_unreachable();
 	}
-
-	// Variant visitor.
-	//
-	template<typename Variant, typename F> requires is_variant_v<Variant>
-	static constexpr decltype( auto ) visit_variant( Variant&& var, F&& fn )
+	ULUA_COLD inline void type_error [[noreturn]] ( lua_State* L, int arg, const char* type )
 	{
-		return visit_index<std::variant_size_v<Variant>>( var.index(), [ & ] <size_t N> ( const_tag<N> ) -> decltype( auto )
-		{ 
-			return fn( std::move( std::get<N>( var ) ) );
-		} );
-	}
-	template<typename Variant, typename F> requires is_variant_v<std::remove_const_t<Variant>>
-	static constexpr decltype( auto ) visit_variant( Variant& var, F&& fn )
-	{
-		return visit_index<std::variant_size_v<std::remove_const_t<Variant>>>( var.index(), [ & ] <size_t N> ( const_tag<N> ) -> decltype( auto )
-		{ 
-			return fn( std::get<N>( var ) );
-		} );
+		luaL_typerror( L, arg, type );
+		detail::assume_unreachable();
 	}
 };

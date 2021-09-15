@@ -32,7 +32,16 @@ namespace ulua::stack
 	
 	// Gets the top of the stack.
 	//
-	inline slot top( lua_State* L ) { slot s = ( slot ) ( L->top - L->base ); detail::assume_true( s >= 0 ); return s; }
+	inline slot top( lua_State* L ) 
+	{ 
+#if ULUA_ACCEL
+		slot s = accel::top( L );
+#else
+		slot s = lua_gettop( L );
+#endif
+		detail::assume_true( s >= 0 ); 
+		return s; 
+	}
 	
 	// Sets the top of the stack.
 	//
@@ -44,6 +53,14 @@ namespace ulua::stack
 	inline int push( lua_State* L, T&& value )
 	{
 		return type_traits<T>::push( L, std::forward<T>( value ) );
+	}
+
+	// Pushes a closure value popping N values into its upvalues.
+	//
+	inline int push_closure( lua_State* L, cfunction_t fn, slot upvalue_count = 0 )
+	{
+		lua_pushcclosure( L, fn, upvalue_count );
+		return 1;
 	}
 
 	// Push by emplace.
@@ -59,15 +76,13 @@ namespace ulua::stack
 
 	// Pops a given number of items from the top of the stack.
 	//
-	inline void pop_n( lua_State* L, slot i ) { L->top -= i; }
-
-	// Swaps stack positions.
-	//
-	inline void xchg( lua_State* L, slot a, slot b )
+	inline void pop_n( lua_State* L, slot i ) 
 	{
-		auto* p1 = a < 0 ? &L->top[ a ] : &L->base[ a - 1 ];
-		auto* p2 = b < 0 ? &L->top[ b ] : &L->base[ b - 1 ];
-		std::swap( *p1, *p2 );
+#if ULUA_ACCEL
+		accel::pop( L, i );
+#else
+		lua_pop( L, i );
+#endif
 	}
 
 	// Removes a number of stack elements at the given position.
@@ -118,11 +133,6 @@ namespace ulua::stack
 	inline decltype( auto ) get( lua_State* L, slot i )
 	{
 		return type_traits<T>::get( L, i );
-	}
-	template<typename T>
-	inline decltype( auto ) get_deferred( lua_State* L, slot i )
-	{
-		return detail::get_deferred_if<T>( L, i );
 	}
 
 	// Pops the top of the stack into registry and returns the registry key.
@@ -179,8 +189,14 @@ namespace ulua::stack
 		else if constexpr ( Raw )
 		{
 			push( L, key );
-			xchg( L, -1, -2 );
+#if ULUA_ACCEL
+			accel::xchg( L, -1, -2 );
 			lua_rawset( L, i );
+#else
+			copy( L, -2 );
+			lua_rawset( L, i );
+			pop_n( L, 1 );
+#endif
 		}
 		else
 		{
@@ -195,8 +211,14 @@ namespace ulua::stack
 			else
 			{
 				push( L, key );
-				xchg( L, -1, -2 );
+#if ULUA_ACCEL
+				accel::xchg( L, -1, -2 );
 				lua_settable( L, i );
+#else
+				copy( L, -2 );
+				lua_settable( L, i );
+				pop_n( L, 1 );
+#endif
 			}
 		}
 	}
@@ -309,7 +331,7 @@ namespace ulua::stack
 	}
 	inline void checked_remove( lua_State* L, [[maybe_unused]] slot i, size_t n = 1 )
 	{
-		if constexpr ( detail::is_debug() )
+		if constexpr ( is_debug() )
 			validate_remove( L, i, n );
 		pop_n( L, n );
 	}

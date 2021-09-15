@@ -17,7 +17,7 @@ namespace ulua
 		{
 			auto apply = [ & ] () -> Ret
 			{
-				return std::apply( [ & ] <typename... Tx> ( Tx&&... args ) -> Ret { return func( std::forward<Tx>( args )... ); }, stack::get_deferred<Args>( L, 1 ) );
+				return std::apply( [ & ] <typename... Tx> ( Tx&&... args ) -> Ret { return func( std::forward<Tx>( args )... ); }, stack::get<Args>( L, 1 ) );
 			};
 
 			if constexpr ( std::is_void_v<Ret> )
@@ -64,11 +64,12 @@ namespace ulua
 			else if constexpr ( Traits::is_lambda )
 			{
 				upvalue_count = 1;
-				new ( lua_newuserdata( L, sizeof( Func ) ) ) Func( std::forward<F>( func ) );
+				stack::emplace_userdata<Func>( L, std::forward<F>( func ) );
 	
 				wrapper = [ ] ( lua_State* L ) -> int
 				{
-					auto* fn = ( Func* ) lua_touserdata( L, lua_upvalueindex( 1 ) );
+					int uvi = lua_upvalueindex( 1 );
+					auto* fn = ( Func* ) type_traits<userdata_value>::get( L, uvi );
 					return apply_closure<Ret, Args>( L, *fn );
 				};
 	
@@ -77,7 +78,9 @@ namespace ulua
 					stack::create_table( L, reserve_records{ 1 } );
 					stack::push<cfunction_t>( L, [ ] ( lua_State* L )
 					{
-						std::destroy_at( ( Func* ) lua_touserdata( L, 1 ) );
+						int uvi = 1;
+						auto* fn = ( Func* ) type_traits<userdata_value>::get( L, uvi );
+						std::destroy_at( fn );
 						return 0;
 					} );
 					stack::set_field( L, -2, meta::gc );
@@ -89,11 +92,12 @@ namespace ulua
 			else if constexpr ( std::is_void_v<C> )
 			{
 				upvalue_count = 1;
-				lua_pushlightuserdata( L, ( void* ) func );
+				stack::push( L, light_userdata{ +func } );
 	
 				wrapper = [ ] ( lua_State* L ) -> int
 				{
-					auto fn = ( Func ) lua_touserdata( L, lua_upvalueindex( 1 ) );
+					int uvi = lua_upvalueindex( 1 );
+					auto fn = ( decltype( +func ) ) type_traits<light_userdata>::get( L, uvi ).pointer;
 					return apply_closure<Ret, Args>( L, fn );
 				};
 			}
@@ -109,7 +113,7 @@ namespace ulua
 					} );
 				}( std::type_identity<Args>{} );
 			}
-			lua_pushcclosure( L, wrapper, upvalue_count );
+			stack::push_closure( L, wrapper, upvalue_count );
 			return 1;
 		}
 		
@@ -128,12 +132,11 @@ namespace ulua
 			//
 			if constexpr ( Traits::is_lambda || std::is_void_v<C> )
 			{
-				cfunction_t wrapper = [ ] ( lua_State* L ) -> int
+				stack::push_closure( L, [ ] ( lua_State* L ) -> int
 				{
 					auto fn = F;
 					return apply_closure<Ret, Args>( L, fn );
-				};
-				lua_pushcclosure( L, wrapper, 0 );
+				} );
 				return 1;
 			}
 			// Member function:
@@ -154,19 +157,20 @@ namespace ulua
 	// Type traits for invocables.
 	//
 	template<auto F> requires detail::Invocable<decltype(F)>
-	struct type_traits<detail::const_tag<F>>
+	struct type_traits<const_tag<F>>
 	{
-		inline static int push( lua_State* L, detail::const_tag<F> ) 
+		inline static int push( lua_State* L, const_tag<F> ) 
 		{
-			return detail::push_closure( L, detail::const_tag<F>{} );
+			return detail::push_closure( L, const_tag<F>{} );
 		}
 	};
 	template<typename F> requires ( !Reference<std::decay_t<F>> && detail::Invocable<std::decay_t<F>> && !std::is_same_v<std::decay_t<F>, cfunction_t> )
 	struct type_traits<F>
 	{
-		inline static int push( lua_State* L, F&& func ) 
+		template<typename V>
+		inline static int push( lua_State* L, V&& func ) 
 		{
-			return detail::push_closure( L, std::forward<F>( func ) );
+			return detail::push_closure<V>( L, std::forward<V>( func ) );
 		}
 	};
 };

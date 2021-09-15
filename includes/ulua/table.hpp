@@ -36,15 +36,16 @@ namespace ulua
 				stack::push( table.state(), std::forward<T>( value ) );
 				stack::set_field( table.state(), table.slot(), key, std::bool_constant<Raw>{} );
 			}
-			template<typename T = const new_table_tag_t&>
+			template<typename T/* = std::initializer_list<new_table_tag_t>*/>
 			inline table_proxy& operator=( T&& value ) 
 			{ 
-				if constexpr ( std::is_same_v<std::decay_t<T>, new_table_tag_t>>
-				{
-					stack::create_table( table.state() );
-					stack::set_field( table.state(), table.slot(), key, std::bool_constant<Raw>{} );
-				}
-				else
+				//if constexpr ( std::is_same_v<std::decay_t<T>, std::initializer_list<new_table_tag_t>>> )
+				//{
+				//	stack::create_table( table.state() );
+				//	stack::set_field( table.state(), table.slot(), key, std::bool_constant<Raw>{} );
+				//	return *this;
+				//}
+				//else
 				{
 					set<T>( std::forward<T>( value ) );
 					return *this;

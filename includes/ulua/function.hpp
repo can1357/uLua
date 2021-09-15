@@ -27,7 +27,7 @@ namespace ulua
 		inline size_t size() const { return is_error() ? 0 : size_t( last - first ); }
 		inline bool is_error() const { return retval != 0; }
 		inline bool is_success() const { return retval == 0; }
-		inline void assert() const { if ( is_error() ) detail::error( L, error() ); }
+		inline void assert() const { if ( is_error() ) ulua::error( L, error() ); }
 		inline explicit operator bool() const { return is_success(); }
 
 		// Error getter.
@@ -50,7 +50,7 @@ namespace ulua
 			if constexpr ( std::is_same_v<T, nil_t> )
 				return T{};
 			if ( i >= size() )
-				detail::error( L, "expected %u return values, got %u", i + 1, size() );
+				ulua::error( L, "expected %u return values, got %u", i + 1, size() );
 			return stack::get<T>( L, first + i );
 		}
 		inline std::string to_string( size_t i ) const { return stack::to_string( L, first + i ); }
@@ -84,7 +84,7 @@ namespace ulua
 				return [ & ] <template<typename...> typename Tup, typename... Tx> ( std::type_identity<Tup<Tx...>> )
 				{
 					if ( size() < sizeof...( Tx ) )
-						detail::error( L, "expected %u return values, got %u", sizeof...( Tx ), size() );
+						error( L, "expected %u return values, got %u", sizeof...( Tx ), size() );
 					size_t it = 0;
 					return Tup<Tx...>{ as<Tx>( it++ )... };
 				}( std::type_identity<T>{} );

@@ -57,28 +57,37 @@ namespace ulua
 	struct light_userdata
 	{
 		void* pointer;
-		operator void*() const { return pointer; }
+		operator void* ( ) const { return pointer; }
 	};
-	// Type meta traits.
+	struct userdata_value
+	{
+		void* pointer;
+		operator void* () const { return pointer; }
+	};
+
+	// Type traits declaration.
 	//
 	template<typename T> struct type_traits;
-
-	struct popable_tag_t {};
-	struct emplacable_tag_t {};
-	struct deferrable_tag_t {};
-	template<typename T> concept Poppable = std::is_base_of_v<popable_tag_t, type_traits<T>>;
-	template<typename T> concept Emplacable = std::is_base_of_v<emplacable_tag_t, type_traits<T>>;
-	template<typename T> concept Deferrable = std::is_base_of_v<deferrable_tag_t, type_traits<T>>;
-
-	// Primitive type traits.
-	//
 	template<typename T> struct type_traits<T&> : type_traits<T> {};
 	template<typename T> struct type_traits<T&&> : type_traits<T> {};
 	template<typename T> struct type_traits<const T> : type_traits<T> {};
-	template<typename T, size_t N> struct type_traits<T[N]> : type_traits<T*> {};
-	template<typename T, size_t N> struct type_traits<T(&)[N]> : type_traits<T*> {};
-	template<typename T, size_t N> struct type_traits<T(*)[N]> : type_traits<T*> {};
+	template<typename T, size_t N> struct type_traits<T[ N ]> : type_traits<T*> {};
+	template<typename T, size_t N> struct type_traits<T( & )[ N ]> : type_traits<T*> {};
+	template<typename T, size_t N> struct type_traits<T( * )[ N ]> : type_traits<T*> {};
+	template<typename R, typename... A> struct type_traits<R(A...)> : type_traits<R(*)( A... )> {};
+	template<typename R, typename... A> struct type_traits<R(A..., ...)> : type_traits<R(*)( A..., ... )> {};
 
+	// Type meta traits.
+	//
+	struct popable_tag_t {};
+	struct emplacable_tag_t {};
+	struct assumable_tag_t {};
+	template<typename T> concept Poppable = std::is_base_of_v<popable_tag_t, type_traits<T>>;
+	template<typename T> concept Emplacable = std::is_base_of_v<emplacable_tag_t, type_traits<T>>;
+	template<typename T> concept Assumable = std::is_base_of_v<assumable_tag_t, type_traits<T>>;
+
+	// Primitive type traits.
+	//
 	template<typename T> requires std::is_integral_v<T>
 	struct type_traits<T>
 	{
@@ -89,11 +98,25 @@ namespace ulua
 		}
 		inline static bool check( lua_State* L, int& idx )
 		{
+#if ULUA_ACCEL
+			return tvisnumber( accel::ref( L, idx++ ) );
+#else
 			return lua_type( L, idx++ ) == ( int ) value_type::number;
+#endif
 		}
 		inline static T get( lua_State* L, int& idx )
 		{
+#if ULUA_ACCEL
+			auto* tv = accel::ref( L, idx++ );
+			if ( tvisint( tv ) )
+				return ( T ) intV( tv );
+			else if ( tvisnum( tv ) )
+				return ( T ) numV( tv );
+			else
+				type_error( L, idx - 1, "integer" );
+#else
 			return ( T ) luaL_checkinteger( L, idx++ );
+#endif
 		}
 	};
 	template<typename T> requires std::is_floating_point_v<T>
@@ -106,11 +129,25 @@ namespace ulua
 		}
 		inline static bool check( lua_State* L, int& idx )
 		{
+#if ULUA_ACCEL
+			return tvisnumber( accel::ref( L, idx++ ) );
+#else
 			return lua_type( L, idx++ ) == ( int ) value_type::number;
+#endif
 		}
 		inline static T get( lua_State* L, int& idx )
 		{
+#if ULUA_ACCEL
+			auto* tv = accel::ref( L, idx++ );
+			if ( tvisint( tv ) )
+				return ( T ) intV( tv );
+			else if ( tvisnum( tv ) )
+				return ( T ) numV( tv );
+			else
+				type_error( L, idx - 1, "number" );
+#else
 			return ( T ) luaL_checknumber( L, idx++ );
+#endif
 		}
 	};
 	template<>
@@ -123,13 +160,25 @@ namespace ulua
 		}
 		inline static bool check( lua_State* L, int& idx )
 		{
+#if ULUA_ACCEL
+			return tvisstr( accel::ref( L, idx++ ) );
+#else
 			return lua_type( L, idx++ ) == ( int ) value_type::string;
+#endif
 		}
 		inline static std::string_view get( lua_State* L, int& idx )
 		{
+#if ULUA_ACCEL
+			auto* tv = accel::ref( L, idx++ );
+			if ( !tvisstr( tv ) )
+				type_error( L, idx - 1, "string" );
+			auto* s = strV( tv );
+			return { strdata( s ), strdata( s ) + s->len };
+#else
 			size_t length;
 			const char* data = luaL_checklstring( L, idx++, &length );
 			return { data, data + length };
+#endif
 		}
 	};
 	template<>
@@ -170,11 +219,19 @@ namespace ulua
 		}
 		inline static bool check( lua_State* L, int& idx )
 		{
+#if ULUA_ACCEL
+			return tvisbool( accel::ref( L, idx++ ) );
+#else
 			return lua_type( L, idx++ ) == ( int ) value_type::boolean;
+#endif
 		}
 		inline static bool get( lua_State* L, int& idx )
 		{
+#if ULUA_ACCEL
+			return tvistruecond( accel::ref( L, idx++ ) );
+#else
 			return lua_toboolean( L, idx++ );
+#endif
 		}
 	};
 	template<>
@@ -187,11 +244,18 @@ namespace ulua
 		}
 		inline static bool check( lua_State* L, int& idx )
 		{
-			return lua_type( L, idx++ ) == ( int ) value_type::function;
+#if ULUA_ACCEL
+			return tvisfunc( accel::ref( L, idx++ ) );
+#else
+			return lua_tocfunction( L, idx++ );
+#endif
 		}
 		inline static cfunction_t get( lua_State* L, int& idx )
 		{
-			return lua_tocfunction( L, idx++ );
+			int i = idx;
+			if ( auto f = lua_tocfunction( L, idx++ ) ) [[likely]]
+				return f;
+			type_error( L, i, "C function" );
 		}
 	};
 	template<>
@@ -204,43 +268,50 @@ namespace ulua
 		}
 		inline static bool check( lua_State* L, int& idx )
 		{
+#if ULUA_ACCEL
+			return tvislightud( accel::ref( L, idx++ ) );
+#else
 			return lua_type( L, idx++ ) == ( int ) value_type::light_userdata;
+#endif
 		}
 		inline static light_userdata get( lua_State* L, int& idx )
 		{
+#if ULUA_ACCEL
+			auto* tv = accel::ref( L, idx++ );
+			if ( tvislightud( tv ) ) [[likely]]
+				return { lightudV( G( L ), tv ) };
+#else
 			return { lua_touserdata( L, idx++ ) };
+#endif
+			return { nullptr }; // Caller should handle nullptr instead for better error messages.
 		}
 	};
-	namespace detail
+	template<>
+	struct type_traits<userdata_value>
 	{
-		template<typename... Tx>
-		struct deferred_variant
+		// No pusher.
+		inline static bool check( lua_State* L, int& idx )
 		{
-			lua_State* L;
-			int idx;
-			size_t type_index;
-
-			template<typename... Tv>
-			inline operator std::variant<Tv...>() const
-			{
-				return detail::visit_index<sizeof...( Tx )>( type_index, [ & ] <size_t I> ( const_tag<I> ) -> std::variant<Tv...>
-				{
-					int i = idx;
-					return type_traits<std::tuple_element_t<I, std::tuple<Tx...>>>::get( L, i );
-				} );
-			}
-		};
-		template<typename T>
-		inline decltype( auto ) get_deferred_if( lua_State* L, int& idx )
+#if ULUA_ACCEL
+			return tvisudata( accel::ref( L, idx++ ) );
+#else
+			return lua_type( L, idx++ ) == ( int ) value_type::userdata;
+#endif
+		}
+		inline static userdata_value get( lua_State* L, int& idx )
 		{
-			if constexpr ( Deferrable<T> )
-				return type_traits<T>::get_deferred( L, idx );
-			else
-				return type_traits<T>::get( L, idx );
+#if ULUA_ACCEL
+			auto* tv = accel::ref( L, idx++ );
+			if ( tvisudata( tv ) ) [[likely]]
+				return { uddata( udataV( tv ) ) };
+#else
+			return { lua_touserdata( L, idx++ ) };
+#endif
+			return { nullptr }; // Caller should handle nullptr instead for better error messages.
 		}
 	};
 	template<typename... Tx>
-	struct type_traits<std::variant<Tx...>> : deferrable_tag_t
+	struct type_traits<std::variant<Tx...>>
 	{
 		template<typename Var>
 		inline static int push( lua_State* L, Var&& value )
@@ -256,7 +327,7 @@ namespace ulua
 		inline static bool check( lua_State* L, int& idx )
 		{
 			bool valid = false;
-			detail::enum_indices<sizeof...( Tx )>( [ & ] <size_t N> ( detail::const_tag<N> )
+			detail::enum_indices<sizeof...( Tx )>( [ & ] <size_t N> ( const_tag<N> )
 			{
 				using T = std::variant_alternative_t<N, std::variant<Tx...>>;
 				if ( valid ) return;
@@ -270,30 +341,33 @@ namespace ulua
 			} );
 			return valid;
 		}
-		inline static detail::deferred_variant<Tx...> get_deferred( lua_State* L, int& idx )
+		using variant_result_t = std::variant<decltype( type_traits<Tx>::get( std::declval<lua_State*>(), std::declval<int&>() ) )...>;
+		inline static variant_result_t get( lua_State* L, int& idx ) 
 		{
-			detail::deferred_variant<Tx...> result = { L, idx, std::variant_npos };
-			detail::enum_indices<sizeof...( Tx )>( [ & ] <size_t N> ( detail::const_tag<N> )
+			std::optional<variant_result_t> result = {};
+			detail::enum_indices<sizeof...( Tx )>( [ & ] <size_t N> ( const_tag<N> )
 			{
 				using T = std::variant_alternative_t<N, std::variant<Tx...>>;
-				if ( result.type_index != std::variant_npos ) return;
+				if ( result.has_value() ) return;
 
 				int i = idx;
 				if ( type_traits<T>::check( L, i ) )
-				{
-					idx = i;
-					result.type_index = N;
-				}
+					result.emplace( variant_result_t{ std::in_place_index_t<N>{}, type_traits<T>::get( L, idx ) } );
 			} );
-			if ( result.type_index == std::variant_npos )
-				detail::type_error( L, idx, "variant<...>" /*TODO: Namer*/ );
-			return result;
+			if ( !result.has_value() )
+			{
+#if ULUA_NO_CTTI
+				type_error( L, idx, "variant<...>" );
+#else
+				std::string name{ detail::ctti_namer<std::variant<Tx...>>{} };
+				type_error( L, idx, name.data() + 5 );
+#endif
+			}
+			return std::move( result ).value();
 		}
-		using variant_result_t = std::variant<decltype( type_traits<Tx>::get( std::declval<lua_State*>(), std::declval<int&>() ) )...>;
-		inline static variant_result_t get( lua_State* L, int& idx ) { return get_deferred( L, idx ); }
 	};
 	template<typename T>
-	struct type_traits<std::optional<T>> : deferrable_tag_t
+	struct type_traits<std::optional<T>>
 	{
 		template<typename Opt>
 		inline static int push( lua_State* L, Opt&& value )
@@ -308,16 +382,6 @@ namespace ulua
 				return true;
 			return type_traits<T>::check( L, ( idx = i ) );
 		}
-		inline static auto get_deferred( lua_State* L, int& idx )
-		{
-			using R = std::optional<decltype( detail::get_deferred_if<T>( L, idx ) )>;
-
-			int i = idx;
-			if ( type_traits<nil_t>::check( L, idx ) )
-				return R{ std::nullopt };
-			else
-				return R{ detail::get_deferred_if<T>( L, ( idx = i ) ) };
-		}
 		inline static auto get( lua_State* L, int& idx )
 		{
 			using R = std::optional<decltype( type_traits<T>::get( L, idx ) )>;
@@ -330,7 +394,7 @@ namespace ulua
 		}
 	};
 	template<typename... Tx>
-	struct type_traits<std::tuple<Tx...>> : deferrable_tag_t
+	struct type_traits<std::tuple<Tx...>>
 	{
 		template<typename Tup>
 		inline static int push( lua_State* L, Tup&& value )
@@ -345,15 +409,11 @@ namespace ulua
 		inline static bool check( lua_State* L, int& idx )
 		{
 			bool valid = true;
-			detail::enum_indices<sizeof...( Tx )>( [ & ] <size_t N> ( detail::const_tag<N> )
+			detail::enum_indices<sizeof...( Tx )>( [ & ] <size_t N> ( const_tag<N> )
 			{
 				valid = valid && type_traits<std::tuple_element_t<N, std::tuple<Tx...>>>::check( L, idx );
 			} );
 			return valid;
-		}
-		inline static auto get_deferred( lua_State* L, int& idx )
-		{
-			return detail::ordered_forward_as_tuple{ detail::get_deferred_if<Tx>( L, idx )... }.unwrap();
 		}
 		inline static auto get( lua_State* L, int& idx )
 		{
@@ -361,7 +421,7 @@ namespace ulua
 		}
 	};
 	template<typename T1, typename T2>
-	struct type_traits<std::pair<T1, T2>> : deferrable_tag_t
+	struct type_traits<std::pair<T1, T2>>
 	{
 		template<typename Pair>
 		inline static int push( lua_State* L, Pair&& value )
@@ -377,14 +437,24 @@ namespace ulua
 		{
 			return type_traits<T1>::check( L, idx ) && type_traits<T2>::check( L, idx );
 		}
-		inline static auto get_deferred( lua_State* L, int& idx )
-		{
-			return detail::ordered_forward_as_pair{ detail::get_deferred_if<T1>( L, idx ), detail::get_deferred_if<T2>( L, idx ) }.unwrap();
-		}
 		inline static auto get( lua_State* L, int& idx )
 		{
 			return detail::ordered_forward_as_pair{ type_traits<T1>::get( L, idx ), type_traits<T2>::get( L, idx ) }.unwrap();
 		}
+	};
+	template<>
+	struct type_traits<std::nullopt_t>
+	{
+		inline static int push( lua_State* L, std::nullopt_t ) { return type_traits<nil_t>::push( L, nil ); }
+		inline static bool check( lua_State* L, int& idx ) { return type_traits<nil_t>::check( L, idx ); }
+		inline static std::nullopt_t get( lua_State*, int& idx ) { idx++; return std::nullopt; }
+	};
+	template<>
+	struct type_traits<std::nullptr_t>
+	{
+		inline static int push( lua_State* L, std::nullptr_t ) { return type_traits<nil_t>::push( L, nil ); }
+		inline static bool check( lua_State* L, int& idx ) { return type_traits<nil_t>::check( L, idx ); }
+		inline static std::nullptr_t get( lua_State*, int& idx ) { idx++; return nullptr; }
 	};
 
 	// Pseudo type traits that simply return the active state.
