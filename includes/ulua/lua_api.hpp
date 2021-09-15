@@ -6,6 +6,7 @@
 	
 	extern "C" {
 		#include <lj_obj.h>
+		#include <lj_state.h>
 	};
 
 	namespace ulua::accel

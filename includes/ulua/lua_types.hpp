@@ -93,7 +93,12 @@ namespace ulua
 	{
 		inline static int push( lua_State* L, T value )
 		{
+#if ULUA_ACCEL
+			setintptrV( L->top, n );
+			incr_top( L );
+#else
 			lua_pushinteger( L, value );
+#endif
 			return 1;
 		}
 		inline static bool check( lua_State* L, int& idx )
@@ -124,7 +129,15 @@ namespace ulua
 	{
 		inline static int push( lua_State* L, T value )
 		{
+#if ULUA_ACCEL
+			if ( value != value )
+				setnanV( L->top );
+			else
+				setnumV( L->top, n );
+			incr_top( L );
+#else
 			lua_pushnumber( L, value );
+#endif
 			return 1;
 		}
 		inline static bool check( lua_State* L, int& idx )
@@ -196,7 +209,12 @@ namespace ulua
 	{
 		inline static int push( lua_State* L, nil_t )
 		{
+#if ULUA_ACCEL
+			setnilV( L->top );
+			incr_top( L );
+#else
 			lua_pushnil( L );
+#endif
 			return 1;
 		}
 		inline static bool check( lua_State* L, int& idx )
@@ -214,7 +232,12 @@ namespace ulua
 	{
 		inline static int push( lua_State* L, bool value )
 		{
+#if ULUA_ACCEL
+			setboolV( L->top, value );
+			incr_top( L );
+#else
 			lua_pushboolean( L, value );
+#endif
 			return 1;
 		}
 		inline static bool check( lua_State* L, int& idx )
