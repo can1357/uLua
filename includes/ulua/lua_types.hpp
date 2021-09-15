@@ -94,7 +94,7 @@ namespace ulua
 		inline static int push( lua_State* L, T value )
 		{
 #if ULUA_ACCEL
-			setintptrV( L->top, n );
+			setintptrV( L->top, value );
 			incr_top( L );
 #else
 			lua_pushinteger( L, value );
@@ -133,7 +133,7 @@ namespace ulua
 			if ( value != value )
 				setnanV( L->top );
 			else
-				setnumV( L->top, n );
+				setnumV( L->top, value );
 			incr_top( L );
 #else
 			lua_pushnumber( L, value );
