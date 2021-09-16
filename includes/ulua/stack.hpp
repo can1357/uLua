@@ -201,8 +201,19 @@ namespace ulua::stack
 		}
 		else
 		{
-			push( L, key );
-			lua_gettable( L, i );
+			if constexpr ( std::convertible_to<T, const char*> )
+			{
+				lua_getfield( L, i, ( const char* ) key );
+			}
+			else if constexpr ( std::is_same_v<T, std::string> )
+			{
+				lua_getfield( L, i, key.data() );
+			}
+			else
+			{
+				push( L, key );
+				lua_gettable( L, i );
+			}
 		}
 	}
 
