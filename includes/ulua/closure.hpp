@@ -29,7 +29,7 @@ namespace ulua
 					else
 						return stack::push( L, std::forward<Ret>( result ) );
 				}
-			}, stack::get<Args>( L, 1 ) );
+			}, stack::get<popped_vtype_t<Args>>( L, 1 ) );
 		}
 
 		// Pushes a runtime closure.

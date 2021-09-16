@@ -128,7 +128,7 @@ namespace ulua
 		inline userdata_wrapper( T* pointer, userdata_storage type ) : pointer( pointer ), tag( make_tag() ), is_const( std::is_const_v<T> ), storage_type( ( int64_t ) type ) {}
 
 		inline bool check_type() const { return tag == make_tag(); }
-		inline bool check_const_qualifier() const { return std::is_const_v<T> || !is_const; }
+		inline bool check_qual() const { return std::is_const_v<T> || !is_const; }
 		inline operator T*() const { return pointer; }
 		inline T* get() const { return pointer; }
 		inline T& value() const { return *pointer; }
@@ -176,7 +176,7 @@ namespace ulua
 		inline static bool check( lua_State* L, int& idx ) 
 		{ 
 			auto wrapper = ( userdata_wrapper<T>* ) type_traits<userdata_value>::get( L, idx ).pointer;
-			return wrapper && wrapper->check_type() && wrapper->check_const_qualifier();
+			return wrapper && wrapper->check_type() && wrapper->check_qual();
 		}
 		inline static userdata_wrapper<T>& get( lua_State* L, int& idx ) 
 		{
@@ -184,7 +184,7 @@ namespace ulua
 			auto wrapper = ( userdata_wrapper<T>* ) type_traits<userdata_value>::get( L, idx ).pointer;
 			if ( !wrapper || !wrapper->check_type() )
 				type_error( L, i, userdata_name<T>().data() );
-			if ( !wrapper->check_const_qualifier() )
+			if ( !wrapper->check_qual() )
 				arg_error( L, i, "expected mutable '%s', got 'const %s'", userdata_name<T>().data(), userdata_name<T>().data() );
 			return *wrapper;
 		}
@@ -209,7 +209,7 @@ namespace ulua
 		{
 			return type_traits<userdata_wrapper<T>>::check( L, idx );
 		}
-		inline static T& get( lua_State* L, int& idx )
+		inline static std::reference_wrapper<T> get( lua_State* L, int& idx )
 		{
 			return type_traits<userdata_wrapper<T>>::get( L, idx ).value();
 		}
@@ -252,24 +252,6 @@ namespace ulua
 		inline static bool check( lua_State* L, int idx ) { return user_type_traits<T>::check( L, idx ); }
 		// No getter.
 	};
-	template<typename T>
-	struct user_type_traits<std::reference_wrapper<T>>
-	{
-		inline static int push( lua_State* L, std::reference_wrapper<T> pointer )
-		{
-			stack::emplace_userdata<userdata_by_pointer<T>>( L, &pointer.get() );
-			userdata_metatable<std::remove_const_t<T>>::push( L );
-			stack::set_metatable( L, -2 );
-			return 1;
-		}
-		inline static std::reference_wrapper<T> get( lua_State* L, int& idx )
-		{
-			T& result = user_type_traits<T>::get( L, idx );
-			return std::reference_wrapper<T>( result );
-		}
-		inline static bool check( lua_State* L, int& idx ) { return user_type_traits<T>::check( L, idx ); }
-	};
-	
 	template<UserType T> struct type_traits<T&&> :                                        user_type_traits<T&&> {};
 	template<UserType T> struct type_traits<T&> :                                         user_type_traits<T> {};
 	template<UserType T> struct type_traits<T> :                                          user_type_traits<const T> {};
@@ -279,8 +261,8 @@ namespace ulua
 	template<UserType T> struct type_traits<const T*> :                                   user_type_traits<const T*> {};
 	template<UserType T> struct type_traits<std::shared_ptr<T>> :                         user_type_traits<std::shared_ptr<T>> {};
 	template<UserType T> struct type_traits<std::shared_ptr<const T>> :                   user_type_traits<std::shared_ptr<const T>> {};
-	template<UserType T> struct type_traits<std::reference_wrapper<T>> :                  user_type_traits<std::reference_wrapper<T>> {};
-	template<UserType T> struct type_traits<std::reference_wrapper<const T>> :            user_type_traits<std::reference_wrapper<const T>> {};
+	template<UserType T> struct type_traits<std::reference_wrapper<T>> :                  user_type_traits<T> {};
+	template<UserType T> struct type_traits<std::reference_wrapper<const T>> :            user_type_traits<const T> {};
 	template<UserType T, typename Dx> struct type_traits<std::unique_ptr<T, Dx>> :        user_type_traits<std::shared_ptr<T>> {};
 	template<UserType T, typename Dx> struct type_traits<std::unique_ptr<const T, Dx>> :  user_type_traits<std::shared_ptr<const T>> {};
 };
