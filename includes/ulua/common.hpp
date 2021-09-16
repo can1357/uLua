@@ -395,7 +395,23 @@ namespace ulua
 	template<typename... Tx>
 	ULUA_COLD inline void error [[noreturn]] ( lua_State* L, const char* fmt, Tx... args )
 	{
-		luaL_error( L, fmt, args... );
+		if constexpr ( sizeof...( Tx ) != 0 )
+		{
+			std::string buffer( 15, char{} );
+			buffer.resize( snprintf( buffer.data(), buffer.size() + 1, fmt, args... ) );
+			if ( buffer.size() > 15 )
+				snprintf( buffer.data(), buffer.size() + 1, fmt, args... );
+			luaL_error( L, "%s", buffer.data() );
+		}
+		else
+		{
+			luaL_error( L, "%s", fmt );
+		}
+		detail::assume_unreachable();
+	}
+	ULUA_COLD inline void arg_error [[noreturn]] ( lua_State* L, int arg, const char* message )
+	{
+		luaL_argerror( L, arg, message );
 		detail::assume_unreachable();
 	}
 	ULUA_COLD inline void type_error [[noreturn]] ( lua_State* L, int arg, const char* type )

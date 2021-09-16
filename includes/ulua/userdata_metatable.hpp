@@ -50,6 +50,10 @@ namespace ulua
 		template<typename T, typename O> concept Powable = requires( const T& v, const O& v2 ) { pow( v, v2 ); };
 	};
 
+	// Readonly tag.
+	//
+	struct readonly_t {};
+
 	// Helpers for the user to expose members or properties.
 	//
 	template<typename T>
@@ -71,16 +75,16 @@ namespace ulua
 		inline constexpr member_descriptor( std::string_view name, G&& getter, S&& setter ) : getter( std::forward<G>( getter ) ), setter( std::forward<S>( setter ) ), name( name ) {}
 
 		template<typename T>
-		inline void get( lua_State* L, T* value ) const
+		inline void get( lua_State* L, stack::slot key_slot, T* value ) const
 		{
 			if constexpr ( detail::Callable<G, T*> )
 				stack::push( L, getter( value ) );
 			else
-				error( L, "attempt to index write-only field '%.*s'", name.length(), name.data() );
+				error( L, "attempt to get write-only field '%.*s'", name.length(), name.data() );
 		}
 
 		template<typename T>
-		inline void set( lua_State* L, T* value, const stack_object& ref ) const
+		inline void set( lua_State* L, stack::slot key_slot, T* value, const stack_object& ref ) const
 		{
 			if constexpr ( detail::Callable<S, T*, const stack_object&> )
 				setter( value, ref );
@@ -113,6 +117,15 @@ namespace ulua
 		{
 			static_assert( sizeof( Field ) == -1, "Invalid constant member type." );
 		}
+	}
+	template<auto Field>
+	static constexpr auto member( std::string_view name, readonly_t )
+	{
+		return member_descriptor{
+			name,
+			[ ] ( auto* p ) -> decltype( auto ) { return p->*Field; },
+			std::nullopt
+		};
 	}
 	template<typename G>
 	static constexpr auto property( std::string_view name, G&& getter )
@@ -194,12 +207,6 @@ namespace ulua
 			}
 			return false;
 		}
-		template<typename F>
-		static constexpr void find_field_or_die( lua_State* L, std::string_view name, F&& fn )
-		{
-			if ( !find_field( name, std::forward<F>( fn ) ) )
-				error( L, "attempt to index undefined field '%.*s' for type '%.*s'", name.length(), name.data(), userdata_name<T>().length(), userdata_name<T>().data() );
-		}
 
 		// Implement a metatable finding helper.
 		//
@@ -224,54 +231,41 @@ namespace ulua
 		//
 		static push_count index( lua_State* L, const userdata_wrapper<T>& u, const stack_object& k )
 		{
-			auto field_indexer = [ & ] ( auto& field ) { field.get( L, u.get() ); };
+			auto field_indexer = [ & ] ( auto& field ) { field.get( L, k.slot(), u.get() ); };
+			if ( k.is<std::string_view>() && find_field( k.as<std::string_view>(), field_indexer ) )
+				return { 1 };
 
 			if constexpr ( detail::Indexable<T> )
 			{
 				using K = detail::default_key_type_t<T>;
-
-				bool is_string = k.is<std::string_view>();
-				if ( is_string )
+				if ( k.is<K>() )
 				{
-					if ( find_field( k.as<std::string_view>(), field_indexer ) )
-						return { 1 };
-				}
-				if ( std::is_same_v<K, const char*> || std::is_same_v<K, std::string_view> || std::is_same_v<K, std::string> ? is_string : k.is<K>() )
 					stack::push( L, u.value()[ k.as<K>() ] );
-				else
-					stack::push( L, nil );
-				return { 1 };
+					return { 1 };
+				}
 			}
-			else
-			{
-				find_field_or_die( L, k.as<std::string_view>(), field_indexer );
-				return { 1 };
-			}
+
+			error( L, "attempt to set undefined field '%s'", stack::to_string( L, k.slot() ).data() );
 		}
 		static void newindex( lua_State* L, const userdata_wrapper<T>& u, const stack_object& k, const stack_object& v )
 		{
-			auto field_indexer = [ & ] ( auto& field ) { field.set( L, u.get(), v ); };
+			auto field_indexer = [ & ] ( auto& field ) { field.set( L, k.slot(), u.get(), v ); };
+			if ( k.is<std::string_view>() && find_field( k.as<std::string_view>(), field_indexer ) )
+				return;
 
 			if constexpr ( detail::NewIndexable<T> )
 			{
 				using K = detail::default_key_type_t<T>;
 				using V = detail::default_value_type_t<T>;
 
-				bool is_string = k.is<std::string_view>();
-				if ( is_string )
+				if ( k.is<K>() )
 				{
-					bool success = find_field( k.as<std::string_view>(), field_indexer );
-					if ( success ) return;
-				}
-				if ( std::is_same_v<K, const char*> || std::is_same_v<K, std::string_view> || std::is_same_v<K, std::string> ? is_string : k.is<K>() )
 					u.value()[ k.as<K>() ] = v.as<V>();
-				else
-					type_error( L, k.slot(), "valid key" );
+					return;
+				}
 			}
-			else
-			{
-				find_field_or_die( L, k.as<std::string_view>(), field_indexer );
-			}
+
+			error( L, "attempt to get undefined field '%s'", stack::to_string( L, k.slot() ).data() );
 		}
 
 		// String conversation of the object.
