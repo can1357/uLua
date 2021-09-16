@@ -429,14 +429,16 @@ namespace ulua
 
 	// Errors.
 	//
+	static constexpr size_t max_error_length = 256;
+
 	template<typename... Tx>
 	ULUA_COLD inline void error [[noreturn]] ( lua_State* L, const char* fmt, Tx... args )
 	{
 		if constexpr ( sizeof...( Tx ) != 0 )
 		{
-			char buffer[ 129 ];
-			snprintf( buffer, 128, fmt, args... );
-			buffer[ 127 ] = 0;
+			char buffer[ max_error_length ];
+			snprintf( buffer, max_error_length, fmt, args... );
+			buffer[ max_error_length - 1 ] = 0;
 			luaL_error( L, "%s", buffer );
 		}
 		else
@@ -450,9 +452,9 @@ namespace ulua
 	{
 		if constexpr ( sizeof...( Tx ) != 0 )
 		{
-			char buffer[ 129 ];
-			snprintf( buffer, 128, fmt, args... );
-			buffer[ 127 ] = 0;
+			char buffer[ max_error_length ];
+			snprintf( buffer, max_error_length, fmt, args... );
+			buffer[ max_error_length - 1 ] = 0;
 			luaL_argerror( L, arg, buffer );
 		}
 		else
@@ -461,9 +463,20 @@ namespace ulua
 		}
 		detail::assume_unreachable();
 	}
-	ULUA_COLD inline void type_error [[noreturn]] ( lua_State* L, int arg, const char* type )
+	template<typename... Tx>
+	ULUA_COLD inline void type_error [[noreturn]] ( lua_State* L, int arg, const char* fmt, Tx... args )
 	{
-		luaL_typerror( L, arg, type );
+		if constexpr ( sizeof...( Tx ) != 0 )
+		{
+			char buffer[ max_error_length ];
+			snprintf( buffer, max_error_length, fmt, args... );
+			buffer[ max_error_length - 1 ] = 0;
+			luaL_typerror( L, arg, buffer );
+		}
+		else
+		{
+			luaL_typerror( L, arg, fmt );
+		}
 		detail::assume_unreachable();
 	}
 };

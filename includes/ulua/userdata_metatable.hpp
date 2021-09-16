@@ -47,7 +47,8 @@ namespace ulua
 		template<typename T, typename O> concept Divable = requires( const T& v, const O& v2 ) { v / v2; };
 		template<typename T, typename O> concept Idivable = requires( const T& v, const O& v2 ) { size_t( v / v2 ); };
 		template<typename T, typename O> concept Modable = requires( const T& v, const O& v2 ) { v% v2; };
-		template<typename T, typename O> concept Powable = requires( const T& v, const O& v2 ) { pow( v, v2 ); };
+		template<typename T, typename O> concept Powable = requires( const T & v, const O & v2 ) { pow( v, v2 ); };
+		template<typename T, typename O> concept Xorable = requires( const T& v, const O& v2 ) { v ^ v2; };
 	};
 
 	// Readonly tag.
@@ -457,14 +458,12 @@ namespace ulua
 						if ( obj.is<double>() )
 							return a.value() + obj.as<double>();
 
-					std::string expected;
 					if constexpr ( detail::Addable<T, T> && detail::Addable<T, double> )
-						expected = std::string{ userdata_name<T>() } + " or number";
+						type_error( obj.state(), obj.slot(), "%s or number", userdata_name<T>().data() );
 					else if constexpr ( detail::Addable<T, double> )
-						expected = "number";
+						type_error( obj.state(), obj.slot(), "number" );
 					else
-						expected = std::string{ userdata_name<T>() };
-					type_error( obj.state(), obj.slot(), expected.data() );
+						type_error( obj.state(), obj.slot(), userdata_name<T>().data() );
 				};
 			}
 			
@@ -483,14 +482,12 @@ namespace ulua
 						if ( obj.is<double>() )
 							return a.value() - obj.as<double>();
 
-					std::string expected;
 					if constexpr ( detail::Subable<T, T> && detail::Subable<T, double> )
-						expected = std::string{ userdata_name<T>() } + " or number";
+						type_error( obj.state(), obj.slot(), "%s or number", userdata_name<T>().data() );
 					else if constexpr ( detail::Subable<T, double> )
-						expected = "number";
+						type_error( obj.state(), obj.slot(), "number" );
 					else
-						expected = std::string{ userdata_name<T>() };
-					type_error( obj.state(), obj.slot(), expected.data() );
+						type_error( obj.state(), obj.slot(), userdata_name<T>().data() );
 				};
 			}
 
@@ -509,14 +506,12 @@ namespace ulua
 						if ( obj.is<double>() )
 							return a.value() * obj.as<double>();
 
-					std::string expected;
 					if constexpr ( detail::Mulable<T, T> && detail::Mulable<T, double> )
-						expected = std::string{ userdata_name<T>() } + " or number";
+						type_error( obj.state(), obj.slot(), "%s or number", userdata_name<T>().data() );
 					else if constexpr ( detail::Mulable<T, double> )
-						expected = "number";
+						type_error( obj.state(), obj.slot(), "number" );
 					else
-						expected = std::string{ userdata_name<T>() };
-					type_error( obj.state(), obj.slot(), expected.data() );
+						type_error( obj.state(), obj.slot(), userdata_name<T>().data() );
 				};
 			}
 
@@ -535,14 +530,12 @@ namespace ulua
 						if ( obj.is<double>() )
 							return a.value() / obj.as<double>();
 
-					std::string expected;
 					if constexpr ( detail::Divable<T, T> && detail::Divable<T, double> )
-						expected = std::string{ userdata_name<T>() } + " or number";
+						type_error( obj.state(), obj.slot(), "%s or number", userdata_name<T>().data() );
 					else if constexpr ( detail::Divable<T, double> )
-						expected = "number";
+						type_error( obj.state(), obj.slot(), "number" );
 					else
-						expected = std::string{ userdata_name<T>() };
-					type_error( obj.state(), obj.slot(), expected.data() );
+						type_error( obj.state(), obj.slot(), userdata_name<T>().data() );
 				};
 			}
 
@@ -561,14 +554,12 @@ namespace ulua
 						if ( obj.is<double>() )
 							return a.value() / obj.as<int64_t>();
 
-					std::string expected;
 					if constexpr ( detail::Idivable<T, T> && detail::Idivable<T, double> )
-						expected = std::string{ userdata_name<T>() } + " or number";
+						type_error( obj.state(), obj.slot(), "%s or number", userdata_name<T>().data() );
 					else if constexpr ( detail::Idivable<T, double> )
-						expected = "number";
+						type_error( obj.state(), obj.slot(), "number" );
 					else
-						expected = std::string{ userdata_name<T>() };
-					type_error( obj.state(), obj.slot(), expected.data() );
+						type_error( obj.state(), obj.slot(), userdata_name<T>().data() );
 				};
 			}
 			if constexpr ( has_meta<meta::mod>() )
@@ -586,14 +577,12 @@ namespace ulua
 						if ( obj.is<double>() )
 							return a.value() % obj.as<int64_t>();
 
-					std::string expected;
 					if constexpr ( detail::Modable<T, T> && detail::Modable<T, double> )
-						expected = std::string{ userdata_name<T>() } + " or number";
+						type_error( obj.state(), obj.slot(), "%s or number", userdata_name<T>().data() );
 					else if constexpr ( detail::Modable<T, double> )
-						expected = "number";
+						type_error( obj.state(), obj.slot(), "number" );
 					else
-						expected = std::string{ userdata_name<T>() };
-					type_error( obj.state(), obj.slot(), expected.data() );
+						type_error( obj.state(), obj.slot(), userdata_name<T>().data() );
 				};
 			}
 			if constexpr ( has_meta<meta::pow>() )
@@ -611,14 +600,31 @@ namespace ulua
 						if ( obj.is<double>() )
 							return pow( a.value(), obj.as<int64_t>() );
 
-					std::string expected;
 					if constexpr ( detail::Powable<T, T> && detail::Powable<T, double> )
-						expected = std::string{ userdata_name<T>() } + " or number";
+						type_error( obj.state(), obj.slot(), "%s or number", userdata_name<T>().data() );
 					else if constexpr ( detail::Powable<T, double> )
-						expected = "number";
+						type_error( obj.state(), obj.slot(), "number" );
 					else
-						expected = std::string{ userdata_name<T>() };
-					type_error( obj.state(), obj.slot(), expected.data() );
+						type_error( obj.state(), obj.slot(), userdata_name<T>().data() );
+				};
+			}
+			else if constexpr ( detail::Xorable<T, T> || detail::Xorable<T, int64_t> )
+			{
+				metatable[ meta::pow ] = [ ] ( const userdata_wrapper<const T>& a, const stack_object& obj ) -> decltype( auto )
+				{
+					if constexpr ( detail::Xorable<T, T> )
+						if ( obj.is<userdata_wrapper<const T>>() )
+							return a.value() ^ obj.as<userdata_wrapper<const T>>().value();
+					if constexpr ( detail::Xorable<T, int64_t> )
+						if ( obj.is<double>() )
+							return a.value() ^ obj.as<int64_t>();
+
+					if constexpr ( detail::Xorable<T, T> && detail::Xorable<T, double> )
+						type_error( obj.state(), obj.slot(), "%s or number", userdata_name<T>().data() );
+					else if constexpr ( detail::Xorable<T, double> )
+						type_error( obj.state(), obj.slot(), "number" );
+					else
+						type_error( obj.state(), obj.slot(), userdata_name<T>().data() );
 				};
 			}
 		}
