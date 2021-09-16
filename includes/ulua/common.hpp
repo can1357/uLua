@@ -357,21 +357,42 @@ namespace ulua
 		template<size_t Count, typename F>
 		inline static constexpr decltype( auto ) visit_index( size_t n, F&& fn )
 		{
-			if constexpr ( Count <= 8 )
-				return impl::numeric_visit_8<Count>( n, std::forward<F>( fn ) );
-			else if constexpr ( Count <= 64 )
-				return impl::numeric_visit_64<Count>( n, std::forward<F>( fn ) );
-			else if constexpr ( Count <= 512 )
-				return impl::numeric_visit_512<Count>( n, std::forward<F>( fn ) );
+			if ( std::is_constant_evaluated() )
+			{
+				auto apply = [ & ] <size_t N> ( const_tag<N>, auto&& self ) -> decltype( auto )
+				{
+					if constexpr ( N != Count )
+					{
+						if ( N == n )
+							return fn( const_tag<N>{} );
+						else
+							return self( const_tag<N + 1>{}, self );
+					}
+					else
+					{
+						return fn( const_tag<0ull>{} );
+					}
+				};
+				return apply( const_tag<0ull>{}, apply );
+			}
 			else
 			{
-				// Binary search.
-				//
-				constexpr size_t Midline = Count / 2;
-				if ( n >= Midline )
-					return visit_index<Count - Midline>( n - Midline, [ & ] <size_t N> ( const_tag<N> ) { fn( const_tag<N + Midline>{} ); } );
+				if constexpr ( Count <= 8 )
+					return impl::numeric_visit_8<Count>( n, std::forward<F>( fn ) );
+				else if constexpr ( Count <= 64 )
+					return impl::numeric_visit_64<Count>( n, std::forward<F>( fn ) );
+				else if constexpr ( Count <= 512 )
+					return impl::numeric_visit_512<Count>( n, std::forward<F>( fn ) );
 				else
-					return visit_index<Midline>( n, std::forward<F>( fn ) );
+				{
+					// Binary search.
+					//
+					constexpr size_t Midline = Count / 2;
+					if ( n >= Midline )
+						return visit_index<Count - Midline>( n - Midline, [ & ] <size_t N> ( const_tag<N> ) { fn( const_tag<N + Midline>{} ); } );
+					else
+						return visit_index<Midline>( n, std::forward<F>( fn ) );
+				}
 			}
 		}
 
