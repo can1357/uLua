@@ -5,7 +5,6 @@
 
 namespace ulua
 {
-	struct state_view;
 	struct push_count { int n; };
 
 	namespace detail
