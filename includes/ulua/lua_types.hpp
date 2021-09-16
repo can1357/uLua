@@ -32,7 +32,7 @@ namespace ulua
 		pairs,     unm,       add,   sub,
 		mul,       div,       idiv,  mod,
 		pow,       concat,    eq,    lt,
-		le
+		le,        call,      mode
 	};
 	inline constexpr const char* metafield_name( meta field ) 
 	{
@@ -42,7 +42,7 @@ namespace ulua
 			"__pairs",     "__unm",      "__add",       "__sub",
 			"__mul",       "__div",      "__idiv",      "__mod",
 			"__pow",       "__concat",   "__eq",        "__lt",
-			"__le"
+			"__le",        "__call",     "__mode"
 		};
 		return arr[ ( size_t ) field ];
 	}
