@@ -38,6 +38,7 @@ namespace ulua
 		template<typename T> concept LtComparable = requires( const T& a, const T& b ) { a < b; };
 		template<typename T> concept Iterable = requires( const T& v ) { std::begin( v ); std::end( v ); };
 		template<typename T> concept KvIterable = requires( const T& v ) { std::begin( v )->first; std::begin( v )->second; };
+		template<typename T> concept FindIndexable = requires( const T& v ) { v.find( std::declval<default_key_type_t<T>>() )->second; };
 		template<typename T> concept Indexable = requires( const T& v ) { v[ std::declval<default_key_type_t<T>>() ]; };
 		template<typename T> concept NewIndexable = requires( T& v ) { v[ std::declval<default_key_type_t<T>>() ] = std::declval<default_value_type_t<T>>(); };
 		template<typename T> concept Negable = requires( const T& v ) { -v; };
@@ -245,8 +246,21 @@ namespace ulua
 					return { 1 };
 				}
 			}
+			else if constexpr ( detail::FindIndexable<T> )
+			{
+				using K = detail::default_key_type_t<T>;
+				if ( k.is<K>() )
+				{
+					const T& ref = u.value();
+					if ( auto it = ref.find( k.as<K>() ); it != ref.end() )
+					{
+						stack::push( L, it->second );
+						return { 1 };
+					}
+				}
+			}
 
-			error( L, "attempt to set undefined field '%s'", stack::to_string( L, k.slot() ).data() );
+			error( L, "attempt to get undefined field '%s'", stack::to_string( L, k.slot() ).data() );
 		}
 		static void newindex( lua_State* L, const userdata_wrapper<T>& u, const stack_object& k, const stack_object& v )
 		{
@@ -266,7 +280,7 @@ namespace ulua
 				}
 			}
 
-			error( L, "attempt to get undefined field '%s'", stack::to_string( L, k.slot() ).data() );
+			error( L, "attempt to set undefined field '%s'", stack::to_string( L, k.slot() ).data() );
 		}
 
 		// String conversation of the object.
