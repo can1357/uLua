@@ -337,6 +337,13 @@ namespace ulua
 			return { nullptr }; // Caller should handle nullptr instead for better error messages.
 		}
 	};
+	namespace detail
+	{
+		template<typename T> using popped_type_t = decltype( type_traits<T>::get( std::declval<lua_State*>(), std::declval<int&>() ) );
+		template<typename T> struct popped_vtype;
+		template<template<typename...> typename Tr, typename... Tx> struct popped_vtype<Tr<Tx...>> { using type = Tr<popped_type_t<Tx>...>; };
+		template<typename T> using popped_vtype_t = typename popped_vtype<T>::type;
+	};
 	template<typename... Tx>
 	struct type_traits<std::variant<Tx...>>
 	{
@@ -368,7 +375,7 @@ namespace ulua
 			} );
 			return valid;
 		}
-		using variant_result_t = std::variant<decltype( type_traits<Tx>::get( std::declval<lua_State*>(), std::declval<int&>() ) )...>;
+		using variant_result_t = std::variant<detail::popped_type_t<Tx>...>;
 		inline static variant_result_t get( lua_State* L, int& idx ) 
 		{
 			std::optional<variant_result_t> result = {};

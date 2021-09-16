@@ -67,7 +67,7 @@ namespace ulua
 				wrapper = [ ] ( lua_State* L ) -> int
 				{
 					int uvi = lua_upvalueindex( 1 );
-					auto* fn = ( Func* ) type_traits<userdata_value>::get( L, uvi );
+					auto* fn = ( Func* ) type_traits<userdata_value>::get( L, uvi ).pointer;
 					return apply_closure<Ret, Args>( L, *fn );
 				};
 	
@@ -77,7 +77,7 @@ namespace ulua
 					stack::push<cfunction_t>( L, [ ] ( lua_State* L )
 					{
 						int uvi = 1;
-						auto* fn = ( Func* ) type_traits<userdata_value>::get( L, uvi );
+						auto* fn = ( Func* ) type_traits<userdata_value>::get( L, uvi ).pointer;
 						std::destroy_at( fn );
 						return 0;
 					} );
@@ -172,4 +172,24 @@ namespace ulua
 			return detail::push_closure<V>( L, std::forward<V>( func ) );
 		}
 	};
+
+	// Overload helper.
+	//
+	template<typename... Tx>
+	struct overload : private Tx...
+	{
+		using arguments =   std::variant<detail::popped_vtype_t<typename detail::function_traits<Tx>::arguments>...>;
+		
+		inline constexpr overload() requires ( std::is_default_constructible_v<Tx> && ... ) = default;
+		inline constexpr overload( Tx&&... fn ) : Tx( std::forward<Tx>( fn ) )... {}
+
+		inline push_count operator()( lua_State* L, arguments arg ) const
+		{ 
+			return detail::visit_index<sizeof...( Tx )>( arg.index(), [ & ] <size_t I> ( ulua::const_tag<I> )
+			{
+				return push_count{ stack::push( L, std::apply( ( const std::tuple_element_t<I, std::tuple<Tx...>>& ) * this, std::move( std::get<I>( arg ) ) ) ) };
+			} );
+		}
+	};
+	template<typename... Tx> overload( Tx&&... )->overload<Tx...>;
 };
