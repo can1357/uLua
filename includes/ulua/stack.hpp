@@ -276,7 +276,7 @@ namespace ulua::stack
 
 	// String conversion.
 	//
-	inline std::string to_string( lua_State* L, slot i )
+	ULUA_COLD static std::string to_string( lua_State* L, slot i )
 	{
 		value_type t = type( L, i );
 		switch ( t )
