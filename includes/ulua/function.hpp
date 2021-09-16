@@ -133,12 +133,24 @@ namespace ulua
 	template<Reference Ref>
 	struct basic_function : Ref, detail::lazy_invocable<basic_function<Ref>>
 	{
-		// TODO: Checks?
-
-		inline basic_function() {}
-		template<typename... Tx>
-		explicit inline basic_function( Tx&&... ref ) : Ref( std::forward<Tx>( ref )... ) {}
+		inline constexpr basic_function() {}
+		template<typename... Tx> requires( sizeof...( Tx ) != 0 && detail::Constructable<Ref, Tx...> )
+		explicit inline constexpr basic_function( Tx&&... ref ) : Ref( std::forward<Tx>( ref )... ) {}
 	};
 	using function =       basic_function<registry_reference>;
 	using stack_function = basic_function<stack_reference>;
+
+	// Pseudo-type for getting the caller.
+	//
+	struct caller_reference : stack_function
+	{
+		inline caller_reference( lua_State* L, int level = 1 )
+		{
+			if ( stack::push_callstack( L, level ) )
+			{
+				stack_reference ref{ L, stack::top_t{} };
+				stack_function::swap( ref );
+			}
+		}
+	};
 };

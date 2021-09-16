@@ -104,14 +104,27 @@ namespace ulua
 		inline pointer operator->() const { return &at; }
 	};
 
+	// Create tag.
+	//
+	struct create : reserve_table { inline constexpr create( reserve_table rsvd = {} ) : reserve_table( rsvd ) {} };
+
 	// Table.
 	//
 	template<Reference Ref>
-	struct basic_table : Ref, detail::lazy<basic_table<Ref>>
+	struct basic_table : Ref, detail::lazy_indexable<basic_table<Ref>>
 	{
-		inline basic_table() {}
-		template<typename... Tx>
-		explicit inline basic_table( Tx&&... ref ) : Ref( std::forward<Tx>( ref )... ) {}
+		inline constexpr basic_table() {}
+		template<typename... Tx> requires( sizeof...( Tx ) != 0 && detail::Constructable<Ref, Tx...> )
+		explicit inline constexpr basic_table( Tx&&... ref ) : Ref( std::forward<Tx>( ref )... ) {}
+
+		// Creating constructor.
+		//
+		inline basic_table( lua_State* L, create tag )
+		{
+			stack::create_table( L, tag );
+			Ref ref{ L, stack::top_t{} };
+			Ref::swap( ref );
+		}
 
 		inline iterator begin() const { return stack_reference{ *this }; }
 		inline iterator end() const { return {}; }

@@ -6,9 +6,16 @@ namespace ulua { using raw_t = std::bool_constant<true>; };
 
 namespace ulua
 {
-	struct reserve_table { int arr = 0; int rec = 0; };
-	struct reserve_array : reserve_table { inline constexpr reserve_array( int i ) : reserve_table{ i, 0 } {} };
-	struct reserve_records : reserve_table { inline constexpr reserve_records( int i ) : reserve_table{ 0, i } {} };
+	struct reserve_table 
+	{ 
+		int arr = 0; 
+		int rec = 0; 
+
+		inline constexpr reserve_table() {}
+		inline constexpr explicit reserve_table( int arr, int rec ) : arr( arr ), rec( rec ) {} 
+	};
+	struct reserve_array   : reserve_table { inline constexpr reserve_array( int i ) :   reserve_table( i, 0 ) {} };
+	struct reserve_records : reserve_table { inline constexpr reserve_records( int i ) : reserve_table( 0, i ) {} };
 };
 
 namespace ulua 
@@ -101,13 +108,22 @@ namespace ulua::stack
 	// Slot traits.
 	//
 	inline constexpr bool is_relative( slot i ) { return i < 0 && i > LUA_REGISTRYINDEX; }
-	inline constexpr bool is_global( slot i ) { return i < LUA_REGISTRYINDEX; }
+	inline constexpr bool is_special( slot i ) { return i <= LUA_REGISTRYINDEX; }
+	inline constexpr bool is_upvalue( slot i ) { return i < LUA_GLOBALSINDEX; }
 	inline constexpr bool is_absolute( slot i ) { return i > 0; }
 	
 	// Conversion between absolute and relative slot indexing.
 	//
-	inline slot abs( lua_State* L, slot i ) { return is_relative( i ) ? top( L ) + 1 + i : i; }
-	inline slot rel( lua_State* L, slot i ) { return is_relative( i ) ? i : i - ( top( L ) + 1 ); }
+	inline constexpr slot abs( lua_State* L, slot i ) 
+	{ 
+		if ( !is_relative( i ) ) return i;
+		else                     return top( L ) + 1 + i; 
+	}
+	inline constexpr slot rel( lua_State* L, slot i ) 
+	{
+		if ( is_relative( i ) ) return i;
+		else                     return i - ( top( L ) + 1 );
+	}
 
 	template<typename T>
 	inline decltype( auto ) pop( lua_State* L )
@@ -148,6 +164,19 @@ namespace ulua::stack
 	{
 		lua_rawgeti( L, LUA_REGISTRYINDEX, key.key );
 	}
+	
+	// Pushes the function at the given stack level, returns false on error.
+	//
+	inline bool push_callstack( lua_State* L, int level )
+	{
+		lua_Debug debug;
+		if ( !lua_getstack( L, level, &debug ) )
+			return false;
+		if ( !lua_getinfo( L, "f", &debug ) )
+			return false;
+		return true;
+	}
+	inline bool push_caller( lua_State* L ) { return push_callstack( L, 1 ); }
 	
 	// Fetches a specific key from the table and pushes it.
 	//
@@ -272,7 +301,10 @@ namespace ulua::stack
 
 	// Gets the type of the value in the stack slot.
 	//
-	inline value_type type( lua_State* L, slot i ) { return ( value_type ) lua_type( L, i ); }
+	inline value_type type( lua_State* L, slot i ) 
+	{
+		return ( value_type ) lua_type( L, i );
+	}
 
 	// String conversion.
 	//
@@ -281,19 +313,17 @@ namespace ulua::stack
 		value_type t = type( L, i );
 		switch ( t )
 		{
-			case value_type::number:
+			case value_type::number:         return std::to_string( type_traits<double>::get( L, i ) );
 			case value_type::string:         return type_traits<std::string>::get( L, i );
 			case value_type::boolean:        return type_traits<bool>::get( L, i ) ? "true" : "false";
-			case value_type::table:
-			case value_type::userdata:
+			default:
 			{
 				if ( call_meta( L, i, meta::tostring ) || get_meta( L, i, meta::name ) )
 					return pop<std::string>( L );
-				break;
+				else
+					return type_name( t );
 			}
-			default: break;
 		}
-		return type_name( t );
 	}
 
 	// Pushes a type as userdata.

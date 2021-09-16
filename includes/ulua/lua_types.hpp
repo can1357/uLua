@@ -49,7 +49,13 @@ namespace ulua
 
 	// Primitive types.
 	//
-	struct nil_t { struct tag {}; constexpr explicit nil_t( tag ) {} };
+	struct nil_t
+	{
+		struct tag {};
+		constexpr explicit nil_t( tag ) {}
+		constexpr bool operator==( nil_t ) const noexcept { return true; }
+		constexpr bool operator!=( nil_t ) const noexcept { return false; }
+	};
 	inline constexpr nil_t nil{ nil_t::tag{} };
 
 	using cfunction_t = lua_CFunction;
@@ -81,10 +87,8 @@ namespace ulua
 	//
 	struct popable_tag_t {};
 	struct emplacable_tag_t {};
-	struct assumable_tag_t {};
 	template<typename T> concept Poppable = std::is_base_of_v<popable_tag_t, type_traits<T>>;
 	template<typename T> concept Emplacable = std::is_base_of_v<emplacable_tag_t, type_traits<T>>;
-	template<typename T> concept Assumable = std::is_base_of_v<assumable_tag_t, type_traits<T>>;
 
 	// Primitive type traits.
 	//
@@ -489,5 +493,9 @@ namespace ulua
 		inline static auto get( lua_State* L, int& ) { return L; }
 	};
 	struct state_view;
-	template<> struct type_traits<state_view> : type_traits<lua_State*> {};
+	struct caller_reference;
+	struct this_environment;
+	template<> struct type_traits<state_view> :       type_traits<lua_State*> {};
+	template<> struct type_traits<caller_reference> : type_traits<lua_State*> {};
+	template<> struct type_traits<this_environment> : type_traits<lua_State*> {};
 };

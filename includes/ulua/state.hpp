@@ -41,6 +41,18 @@ namespace ulua
 		inline explicit operator bool() const { return is_success(); }
 		const char* error() const { Ref::push(); return stack::pop<const char*>( Ref::state() ); }
 
+		// Decay to function result for state helpers.
+		//
+		inline function_result decay_to_invocation() requires ( std::is_same_v<Ref, stack_reference> )
+		{
+			if constexpr ( is_debug() )
+				if ( Ref::slot() != stack::top( Ref::state() ) )
+					ulua::error( Ref::state(), ">> Decay from non-top slot <<" );
+			Ref::release();
+			stack::slot top = stack::top( Ref::state() );
+			return function_result{ Ref::state(), top, top + 1, retval };
+		}
+
 		std::string to_string() const 
 		{
 			if ( is_success() )
@@ -126,23 +138,28 @@ namespace ulua
 		inline function_result script_file( const char* path )
 		{
 			auto result = load<stack_reference>( path );
-			if ( !result )
-			{
-				result.release();
-				stack::slot top = stack::top( L );
-				return function_result{ L, top, top + 1, result.retval };
-			}
-			return result();
+			return std::move( result )( );
 		}
 		inline function_result script( std::string_view script, const char* name = "" )
 		{
 			auto result = load<stack_reference>( script, name );
-			if ( !result )
-			{
-				result.release();
-				stack::slot top = stack::top( L );
-				return function_result{ L, top, top + 1, result.retval };
-			}
+			if ( !result ) return result.decay_to_invocation();
+			return std::move( result )( );
+		}
+
+		template<Reference Ref>
+		inline function_result script_file( const char* path, const basic_environment<Ref>& env )
+		{
+			auto result = load<stack_reference>( path );
+			env.set_on( result );
+			return std::move( result )();
+		}
+		template<Reference Ref>
+		inline function_result script( std::string_view script, const basic_environment<Ref>& env, const char* name = "" )
+		{
+			auto result = load<stack_reference>( script, name );
+			if ( !result ) return result.decay_to_invocation();
+			env.set_on( result );
 			return std::move( result )();
 		}
 
@@ -157,5 +174,6 @@ namespace ulua
 	{
 		inline state() : state_view( luaL_newstate() ) {}
 		inline ~state() { lua_close( L ); }
+		operator lua_State*() const { return L; }
 	};
 };
