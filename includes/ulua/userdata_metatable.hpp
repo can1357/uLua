@@ -17,7 +17,7 @@ namespace ulua
 		template<typename T>   struct default_key_type    { using type = size_t; };
 		template<HasKeyType T> struct default_key_type<T> { using type = typename T::key_type; };
 		template<typename T>   
-		using default_key_type_t = typename default_key_type<T>::type;
+		using default_key_type_t = std::conditional_t<std::is_same_v<typename default_key_type<T>::type, std::string>, const char*, typename default_key_type<T>::type>;
 
 		template<typename T>
 		struct default_value_type;
