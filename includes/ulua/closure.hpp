@@ -15,24 +15,22 @@ namespace ulua
 		template<typename Ret, typename Args, typename F>
 		static int apply_closure( lua_State* L, F& func )
 		{
-			auto apply = [ & ] () -> Ret
+			return std::apply( [ & ] <typename... Tx> ( Tx&&... args ) -> int 
 			{
-				return std::apply( [ & ] <typename... Tx> ( Tx&&... args ) -> Ret { return func( std::forward<Tx>( args )... ); }, stack::get<Args>( L, 1 ) );
-			};
-
-			if constexpr ( std::is_void_v<Ret> )
-			{
-				apply();
-				return 0;
-			}
-			else
-			{
-				Ret result = apply();
-				if constexpr ( std::is_same_v<push_count, std::decay_t<Ret>> )
-					return result.n;
+				if constexpr ( std::is_void_v<Ret> )
+				{
+					func( std::forward<Tx>( args )... );
+					return 0;
+				}
 				else
-					return stack::push( L, std::forward<Ret>( result ) );
-			}
+				{
+					Ret result = func( std::forward<Tx>( args )... );
+					if constexpr ( std::is_same_v<push_count, std::decay_t<Ret>> )
+						return result.n;
+					else
+						return stack::push( L, std::forward<Ret>( result ) );
+				}
+			}, stack::get<Args>( L, 1 ) );
 		}
 
 		// Pushes a runtime closure.
@@ -45,6 +43,7 @@ namespace ulua
 			using Args =   typename Traits::arguments;
 			using Ret =    typename Traits::return_type;
 			using C =      typename Traits::owner;
+			static_assert( !Traits::is_vararg, "C varag functions are not allowed." );
 	
 			cfunction_t wrapper = {};
 			int upvalue_count = 0;
@@ -127,7 +126,8 @@ namespace ulua
 			using Args =   typename Traits::arguments;
 			using Ret =    typename Traits::return_type;
 			using C =      typename Traits::owner;
-	
+			static_assert( !Traits::is_vararg, "C varag functions are not allowed." );
+
 			// Static function:
 			//
 			if constexpr ( Traits::is_lambda || std::is_void_v<C> )
