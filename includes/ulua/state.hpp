@@ -64,12 +64,29 @@ namespace ulua
 
 	// State.
 	//
+	namespace detail
+	{
+		template<typename T>
+		concept HasState = requires( T&& x ) { ( lua_State* ) x.state(); };
+	};
 	struct state_view
 	{
-		lua_State* const L;
+		lua_State* L;
 
+		// Null state view.
+		//
+		inline state_view() : L( nullptr ) {}
+		inline state_view( std::nullptr_t ) : state_view() {}
+		
+		// Created from lua_State directly or indirecly by any other object that has a state.
+		//
 		inline state_view( lua_State* state ) : L( state ) {}
+		template<detail::HasState T> inline state_view( T&& ref ) : state_view( ref.state() ) {}
+		
+		// Decay to state and bool.
+		//
 		operator lua_State*() const { return L; }
+		explicit operator bool() const { return L != nullptr; }
 
 		// Sets the panic function.
 		//
@@ -174,6 +191,6 @@ namespace ulua
 	{
 		inline state() : state_view( luaL_newstate() ) {}
 		inline ~state() { lua_close( L ); }
-		operator lua_State*() const { return L; }
+		using state_view::operator lua_State*;
 	};
 };
