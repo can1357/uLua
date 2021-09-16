@@ -1,7 +1,7 @@
 #pragma once
 #include <lua.hpp>
 
-#ifdef LUAJIT_VERSION
+#if defined(LUAJIT_VERSION) && !defined(ULUA_NO_ACCEL)
 	#define ULUA_ACCEL 1
 	
 	extern "C" {
