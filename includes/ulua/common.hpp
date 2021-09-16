@@ -144,6 +144,17 @@ namespace ulua
 			enum_indices<std::tuple_size_v<std::remove_const_t<Tuple>>>( [ & ] <size_t N> ( const_tag<N> ) { fn( std::get<N>( tuple ) ); } );
 		}
 
+		// Parameter pack helper.
+		//
+		template<size_t N, typename... Tx>
+		struct nth_parameter;
+		template<size_t N, typename T, typename... Tx>
+		struct nth_parameter<N, T, Tx...> { using type = typename nth_parameter<N - 1, Tx...>::type; };
+		template<typename T, typename... Tx>
+		struct nth_parameter<0, T, Tx...> { using type = T; };
+		template<size_t N, typename... Tx>
+		using nth_parameter_t = typename nth_parameter<N, Tx...>::type;
+
 		// Ordering helper.
 		//
 		template<typename... Tx>
@@ -423,11 +434,10 @@ namespace ulua
 	{
 		if constexpr ( sizeof...( Tx ) != 0 )
 		{
-			std::string buffer( 15, char{} );
-			buffer.resize( snprintf( buffer.data(), buffer.size() + 1, fmt, args... ) );
-			if ( buffer.size() > 15 )
-				snprintf( buffer.data(), buffer.size() + 1, fmt, args... );
-			luaL_error( L, "%s", buffer.data() );
+			char buffer[ 129 ];
+			snprintf( buffer, 128, fmt, args... );
+			buffer[ 127 ] = 0;
+			luaL_error( L, "%s", buffer );
 		}
 		else
 		{
@@ -435,9 +445,20 @@ namespace ulua
 		}
 		detail::assume_unreachable();
 	}
-	ULUA_COLD inline void arg_error [[noreturn]] ( lua_State* L, int arg, const char* message )
+	template<typename... Tx>
+	ULUA_COLD inline void arg_error [[noreturn]] ( lua_State* L, int arg, const char* fmt, Tx... args )
 	{
-		luaL_argerror( L, arg, message );
+		if constexpr ( sizeof...( Tx ) != 0 )
+		{
+			char buffer[ 129 ];
+			snprintf( buffer, 128, fmt, args... );
+			buffer[ 127 ] = 0;
+			luaL_argerror( L, arg, buffer );
+		}
+		else
+		{
+			luaL_argerror( L, arg, fmt );
+		}
 		detail::assume_unreachable();
 	}
 	ULUA_COLD inline void type_error [[noreturn]] ( lua_State* L, int arg, const char* type )

@@ -104,29 +104,34 @@ namespace ulua
 	//
 	enum class userdata_storage : uint8_t
 	{
-		pointer,
-		value,
-		shared_ptr,
+		pointer    = 0b00,
+		value      = 0b01,
+		shared_ptr = 0b10,
 	};
 
 	// Userdata wrappers.
 	//
 	template<typename T>
+	inline bool __userdata_tag = false;
+	
+	template<typename T>
 	struct userdata_wrapper
 	{
-		inline static void* __tag = nullptr;
+		inline static uint32_t make_tag() { return ( uint32_t ) ( uint64_t ) &__userdata_tag<std::remove_const_t<T>>; }
 
-		uint64_t storage_type : 2;
-		int64_t pointer       : 62;
-		void* const tag = &__tag;
+		T*        pointer;
+		uint64_t  tag          : 32;
+		uint64_t  is_const     : 1;
+		uint64_t  storage_type : 2;
 
-		inline userdata_wrapper() : storage_type( ( int64_t ) userdata_storage::pointer ), pointer( 0 ) {}
-		inline userdata_wrapper( T* pointer, userdata_storage type ) : storage_type( ( int64_t ) type ), pointer( ( int64_t ) pointer ) {}
+		inline userdata_wrapper() : pointer( nullptr ), tag( 0 ), is_const( 0 ), storage_type( 0 ) {}
+		inline userdata_wrapper( T* pointer, userdata_storage type ) : pointer( pointer ), tag( make_tag() ), is_const( std::is_const_v<T> ), storage_type( ( int64_t ) type ) {}
 
-		inline bool check() const { return tag == &__tag; }
-		inline operator T*() const { return get(); }
-		inline T* get() const { return ( T* ) ( uint64_t ) ( int64_t ) pointer; }
-		inline T& value() const { return *get(); }
+		inline bool check_type() const { return tag == make_tag(); }
+		inline bool check_const_qualifier() const { return std::is_const_v<T> || !is_const; }
+		inline operator T*() const { return pointer; }
+		inline T* get() const { return pointer; }
+		inline T& value() const { return *pointer; }
 		inline userdata_storage storage() const { return ( userdata_storage ) storage_type; }
 
 		template<typename S> 
@@ -161,7 +166,7 @@ namespace ulua
 		std::shared_ptr<T> value;
 		inline userdata_by_shared_ptr( std::shared_ptr<T> value ) : userdata_wrapper<T>( value.get(), userdata_storage::value ), value( std::move( value ) ) {}
 	};
-
+	
 	// Implement type traits.
 	//
 	template<typename T>
@@ -171,25 +176,27 @@ namespace ulua
 		inline static bool check( lua_State* L, int& idx ) 
 		{ 
 			auto wrapper = ( userdata_wrapper<T>* ) type_traits<userdata_value>::get( L, idx ).pointer;
-			return wrapper && wrapper->check(); 
+			return wrapper && wrapper->check_type() && wrapper->check_const_qualifier();
 		}
 		inline static userdata_wrapper<T>& get( lua_State* L, int& idx ) 
 		{
 			int i = idx;
 			auto wrapper = ( userdata_wrapper<T>* ) type_traits<userdata_value>::get( L, idx ).pointer;
-			if ( !wrapper || !wrapper->check() )
+			if ( !wrapper || !wrapper->check_type() )
 				type_error( L, i, userdata_name<T>().data() );
+			if ( !wrapper->check_const_qualifier() )
+				arg_error( L, i, "expected mutable '%s', got 'const %s'", userdata_name<T>().data(), userdata_name<T>().data() );
 			return *wrapper;
 		}
 	};
-	template<UserType T>
-	struct type_traits<T> : emplacable_tag_t
+	template<typename T>
+	struct user_type_traits : emplacable_tag_t
 	{
 		template<typename... Tx>
 		inline static int emplace( lua_State* L, Tx&&... args )
 		{
-			stack::emplace_userdata<userdata_by_value<T>>( L, std::forward<Tx>( args )... );
-			userdata_metatable<T>::push( L );
+			stack::emplace_userdata<userdata_by_value<std::remove_const_t<T>>>( L, std::forward<Tx>( args )... );
+			userdata_metatable<std::remove_const_t<T>>::push( L );
 			stack::set_metatable( L, -2 );
 			return 1;
 		}
@@ -207,59 +214,73 @@ namespace ulua
 			return type_traits<userdata_wrapper<T>>::get( L, idx ).value();
 		}
 	};
-	template<UserType T>
-	struct type_traits<T*>
+	template<typename T>
+	struct user_type_traits<T&&> : user_type_traits<T>
+	{
+		inline static T&& get( lua_State* L, int& idx )
+		{
+			return std::move( user_type_traits<T>::get( L, idx ) );
+		}
+	};
+	template<typename T>
+	struct user_type_traits<T*>
 	{
 		inline static int push( lua_State* L, T* pointer )
 		{
 			stack::emplace_userdata<userdata_by_pointer<T>>( L, pointer );
-			userdata_metatable<T>::push( L );
+			userdata_metatable<std::remove_const_t<T>>::push( L );
 			stack::set_metatable( L, -2 );
 			return 1;
 		}
 		inline static T* get( lua_State* L, int& idx )
 		{
-			T& result = type_traits<T>::get( L, idx );
+			T& result = user_type_traits<T>::get( L, idx );
 			return &result;
 		}
-		inline static bool check( lua_State* L, int& idx ) { return type_traits<T>::check( L, idx ); }
+		inline static bool check( lua_State* L, int& idx ) { return user_type_traits<T>::check( L, idx ); }
 	};
-	template<UserType T>
-	struct type_traits<std::shared_ptr<T>>
+	template<typename T>
+	struct user_type_traits<std::shared_ptr<T>>
 	{
 		inline static int push( lua_State* L, std::shared_ptr<T> pointer )
 		{
 			stack::emplace_userdata<userdata_by_shared_ptr<T>>( L, std::move( pointer ) );
-			userdata_metatable<T>::push( L );
+			userdata_metatable<std::remove_const_t<T>>::push( L );
 			stack::set_metatable( L, -2 );
 			return 1;
 		}
-		inline static std::shared_ptr<T> get( lua_State* L, int& idx )
-		{
-			stack::copy( L, idx );
-			reg_key key = stack::pop_reg( L );
-
-			T& result = type_traits<T>::get( L, idx );
-			return std::shared_ptr<T>( &result, [ L, key ] () { unref( L, key ); } );
-		}
-		inline static bool check( lua_State* L, int idx ) { return type_traits<T>::check( L, idx ); }
+		inline static bool check( lua_State* L, int idx ) { return user_type_traits<T>::check( L, idx ); }
 		// No getter.
 	};
-	template<UserType T>
-	struct type_traits<std::reference_wrapper<T>>
+	template<typename T>
+	struct user_type_traits<std::reference_wrapper<T>>
 	{
 		inline static int push( lua_State* L, std::reference_wrapper<T> pointer )
 		{
 			stack::emplace_userdata<userdata_by_pointer<T>>( L, &pointer.get() );
-			userdata_metatable<T>::push( L );
+			userdata_metatable<std::remove_const_t<T>>::push( L );
 			stack::set_metatable( L, -2 );
 			return 1;
 		}
 		inline static std::reference_wrapper<T> get( lua_State* L, int& idx )
 		{
-			T& result = type_traits<T>::get( L, idx );
+			T& result = user_type_traits<T>::get( L, idx );
 			return std::reference_wrapper<T>( result );
 		}
-		inline static bool check( lua_State* L, int& idx ) { return type_traits<T>::check( L, idx ); }
+		inline static bool check( lua_State* L, int& idx ) { return user_type_traits<T>::check( L, idx ); }
 	};
+	
+	template<UserType T> struct type_traits<T&&> :                                        user_type_traits<T&&> {};
+	template<UserType T> struct type_traits<T&> :                                         user_type_traits<T> {};
+	template<UserType T> struct type_traits<T> :                                          user_type_traits<const T> {};
+	template<UserType T> struct type_traits<const T&> :                                   user_type_traits<const T> {};
+	template<UserType T> struct type_traits<const T&&> :                                  user_type_traits<const T> {};
+	template<UserType T> struct type_traits<T*> :                                         user_type_traits<T*> {};
+	template<UserType T> struct type_traits<const T*> :                                   user_type_traits<const T*> {};
+	template<UserType T> struct type_traits<std::shared_ptr<T>> :                         user_type_traits<std::shared_ptr<T>> {};
+	template<UserType T> struct type_traits<std::shared_ptr<const T>> :                   user_type_traits<std::shared_ptr<const T>> {};
+	template<UserType T> struct type_traits<std::reference_wrapper<T>> :                  user_type_traits<std::reference_wrapper<T>> {};
+	template<UserType T> struct type_traits<std::reference_wrapper<const T>> :            user_type_traits<std::reference_wrapper<const T>> {};
+	template<UserType T, typename Dx> struct type_traits<std::unique_ptr<T, Dx>> :        user_type_traits<std::shared_ptr<T>> {};
+	template<UserType T, typename Dx> struct type_traits<std::unique_ptr<const T, Dx>> :  user_type_traits<std::shared_ptr<const T>> {};
 };

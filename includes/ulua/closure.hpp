@@ -183,11 +183,13 @@ namespace ulua
 		inline constexpr overload() requires ( std::is_default_constructible_v<Tx> && ... ) = default;
 		inline constexpr overload( Tx&&... fn ) : Tx( std::forward<Tx>( fn ) )... {}
 
-		inline push_count operator()( lua_State* L, arguments arg ) const
-		{ 
+		template<size_t N> inline constexpr auto& get() { return ( detail::nth_parameter_t<N, Tx...>& ) *this; }
+
+		inline push_count operator()( lua_State* L, arguments arg )
+		{
 			return detail::visit_index<sizeof...( Tx )>( arg.index(), [ & ] <size_t I> ( ulua::const_tag<I> )
 			{
-				return push_count{ stack::push( L, std::apply( ( const std::tuple_element_t<I, std::tuple<Tx...>>& ) * this, std::move( std::get<I>( arg ) ) ) ) };
+				return push_count{ stack::push( L, std::apply( get<I>(), std::move( std::get<I>( arg ) ) ) ) };
 			} );
 		}
 	};

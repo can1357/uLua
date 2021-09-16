@@ -38,7 +38,7 @@ namespace ulua
 		template<typename T> concept LtComparable = requires( const T& a, const T& b ) { a < b; };
 		template<typename T> concept Iterable = requires( const T& v ) { std::begin( v ); std::end( v ); };
 		template<typename T> concept KvIterable = requires( const T& v ) { std::begin( v )->first; std::begin( v )->second; };
-		template<typename T> concept Indexable = requires( T& v ) { v[ std::declval<default_key_type_t<T>>() ]; };
+		template<typename T> concept Indexable = requires( const T& v ) { v[ std::declval<default_key_type_t<T>>() ]; };
 		template<typename T> concept NewIndexable = requires( T& v ) { v[ std::declval<default_key_type_t<T>>() ] = std::declval<default_value_type_t<T>>(); };
 		template<typename T> concept Negable = requires( const T& v ) { -v; };
 		template<typename T, typename O> concept Addable = requires( const T& v, const O& v2 ) { v + v2; };
@@ -229,7 +229,7 @@ namespace ulua
 
 		// Indexing of the object.
 		//
-		static push_count index( lua_State* L, const userdata_wrapper<T>& u, const stack_object& k )
+		static push_count index( lua_State* L, const userdata_wrapper<const T>& u, const stack_object& k )
 		{
 			auto field_indexer = [ & ] ( auto& field ) { field.get( L, k.slot(), u.get() ); };
 			if ( k.is<std::string_view>() && find_field( k.as<std::string_view>(), field_indexer ) )
@@ -270,7 +270,7 @@ namespace ulua
 
 		// String conversation of the object.
 		//
-		static std::string tostring( const userdata_wrapper<T>& u )
+		static std::string tostring( const userdata_wrapper<const T>& u )
 		{
 			if constexpr ( detail::HasToString<T> )
 				return std::string{ u.get()->to_string() };
@@ -280,7 +280,7 @@ namespace ulua
 
 		// Comparison of the object.
 		//
-		static bool eq( const userdata_wrapper<T>& a, T* b )
+		static bool eq( const userdata_wrapper<const T>& a, const T* b )
 		{
 			if ( a.get() == b ) return true;
 
@@ -289,7 +289,7 @@ namespace ulua
 			
 			return false;
 		}
-		static bool lt( const userdata_wrapper<T>& a, T* b )
+		static bool lt( const userdata_wrapper<const T>& a, const T* b )
 		{
 			if ( a.get() == b ) return false;
 
@@ -302,7 +302,7 @@ namespace ulua
 
 			return a.get() < b;
 		}
-		static bool le( const userdata_wrapper<T>& a, T* b )
+		static bool le( const userdata_wrapper<const T>& a, const T* b )
 		{
 			if ( a.get() == b ) return true;
 
@@ -318,7 +318,7 @@ namespace ulua
 		
 		// Garbage collection of the object.
 		//
-		static void gc( const userdata_wrapper<T>& u ) { u.destroy(); }
+		static void gc( const userdata_wrapper<const T>& u ) { u.destroy(); }
 
 		// Sets up the metatable for the first time.
 		//
@@ -328,7 +328,7 @@ namespace ulua
 			//
 			stack_table metatable{ L, i, weak_t{} };
 			if ( !set_meta<meta::metatable>( metatable ) ) metatable[ meta::metatable ] = 0;
-			if ( !set_meta<meta::newindex>( metatable ) )  metatable[ meta::newindex ] = constant<&newindex>();
+			if ( !set_meta<meta::newindex>( metatable ) ) metatable[ meta::newindex ] = constant<&newindex>();
 			if ( !set_meta<meta::index>( metatable ) )     metatable[ meta::index ] = constant<&index>();
 			if ( !set_meta<meta::gc>( metatable ) )        metatable[ meta::gc ] = constant<&gc>();
 			if ( !set_meta<meta::tostring>( metatable ) )  metatable[ meta::tostring ] = constant<&tostring>();
@@ -345,7 +345,7 @@ namespace ulua
 			}
 			else if constexpr ( detail::HasLength<T> || detail::HasSize<T> || detail::Iterable<T> )
 			{
-				metatable[ meta::len ] = [ ] ( const userdata_wrapper<T>& a )
+				metatable[ meta::len ] = [ ] ( const userdata_wrapper<const T>& a )
 				{
 					if constexpr ( detail::HasLength<T> )
 						return a.get()->length();
@@ -369,10 +369,10 @@ namespace ulua
 				//
 				if constexpr ( detail::KvIterable<T> )
 				{
-					metatable[ meta::pairs ]  = [ ] ( T* a )
+					metatable[ meta::pairs ]  = [ ] ( const T* a )
 					{
 						return std::make_tuple(
-							[ it = std::begin( *a ) ] ( lua_State* L, const userdata_wrapper<T>& a, stack_reference ) mutable
+							[ it = std::begin( *a ) ] ( lua_State* L, const userdata_wrapper<const T>& a, stack_reference ) mutable
 							{
 								if ( it != std::end( a.value() ) )
 								{
@@ -395,10 +395,10 @@ namespace ulua
 				//
 				else if constexpr ( detail::Iterable<T> )
 				{
-					metatable[ meta::ipairs ] = [ ] ( T* a )
+					metatable[ meta::ipairs ] = [ ] ( const T* a )
 					{
 						return std::make_tuple(
-							[ it = std::begin( *a ) ] ( lua_State* L, const userdata_wrapper<T>& a, int key ) mutable
+							[ it = std::begin( *a ) ] ( lua_State* L, const userdata_wrapper<const T>& a, int key ) mutable
 							{
 								if ( it != std::end( a.value() ) )
 								{
@@ -428,7 +428,7 @@ namespace ulua
 			}
 			else if constexpr ( detail::Negable<T> )
 			{
-				metatable[ meta::unm ] = [ ] ( const userdata_wrapper<T>& a ) -> decltype( auto ) { return -a.value(); };
+				metatable[ meta::unm ] = [ ] ( const userdata_wrapper<const T>& a ) -> decltype( auto ) { return -a.value(); };
 			}
 			if constexpr ( has_meta<meta::concat>() )
 			{
@@ -436,7 +436,7 @@ namespace ulua
 			}
 			else if constexpr ( detail::Addable<T, T> )
 			{
-				metatable[ meta::concat ] = [ ] ( const userdata_wrapper<T>& a, const userdata_wrapper<T>& b ) -> decltype( auto )
+				metatable[ meta::concat ] = [ ] ( const userdata_wrapper<const T>& a, const userdata_wrapper<const T>& b ) -> decltype( auto )
 				{
 					return a.value() + b.value();
 				};
@@ -448,11 +448,11 @@ namespace ulua
 			}
 			else if constexpr ( detail::Addable<T, T> || detail::Addable<T, double> )
 			{
-				metatable[ meta::add ] = [ ] ( const userdata_wrapper<T>& a, const stack_object& obj ) -> decltype( auto )
+				metatable[ meta::add ] = [ ] ( const userdata_wrapper<const T>& a, const stack_object& obj ) -> decltype( auto )
 				{
 					if constexpr ( detail::Addable<T, T> )
-						if ( obj.is<userdata_wrapper<T>>() )
-							return a.value() + obj.as<userdata_wrapper<T>>().value();
+						if ( obj.is<userdata_wrapper<const T>>() )
+							return a.value() + obj.as<userdata_wrapper<const T>>().value();
 					if constexpr ( detail::Addable<T, double> )
 						if ( obj.is<double>() )
 							return a.value() + obj.as<double>();
@@ -474,11 +474,11 @@ namespace ulua
 			}
 			else if constexpr ( detail::Subable<T, T> || detail::Subable<T, double> )
 			{
-				metatable[ meta::sub ] = [ ] ( const userdata_wrapper<T>& a, const stack_object& obj ) -> decltype( auto )
+				metatable[ meta::sub ] = [ ] ( const userdata_wrapper<const T>& a, const stack_object& obj ) -> decltype( auto )
 				{
 					if constexpr ( detail::Subable<T, T> )
-						if ( obj.is<userdata_wrapper<T>>() )
-							return a.value() - obj.as<userdata_wrapper<T>>().value();
+						if ( obj.is<userdata_wrapper<const T>>() )
+							return a.value() - obj.as<userdata_wrapper<const T>>().value();
 					if constexpr ( detail::Subable<T, double> )
 						if ( obj.is<double>() )
 							return a.value() - obj.as<double>();
@@ -500,11 +500,11 @@ namespace ulua
 			}
 			else if constexpr ( detail::Mulable<T, T> || detail::Mulable<T, double> )
 			{
-				metatable[ meta::mul ] = [ ] ( const userdata_wrapper<T>& a, const stack_object& obj ) -> decltype( auto )
+				metatable[ meta::mul ] = [ ] ( const userdata_wrapper<const T>& a, const stack_object& obj ) -> decltype( auto )
 				{
 					if constexpr ( detail::Mulable<T, T> )
-						if ( obj.is<userdata_wrapper<T>>() )
-							return a.value() * obj.as<userdata_wrapper<T>>().value();
+						if ( obj.is<userdata_wrapper<const T>>() )
+							return a.value() * obj.as<userdata_wrapper<const T>>().value();
 					if constexpr ( detail::Mulable<T, double> )
 						if ( obj.is<double>() )
 							return a.value() * obj.as<double>();
@@ -526,11 +526,11 @@ namespace ulua
 			}
 			else if constexpr ( detail::Divable<T, T> || detail::Divable<T, double> )
 			{
-				metatable[ meta::div ] = [ ] ( const userdata_wrapper<T>& a, const stack_object& obj ) -> decltype( auto )
+				metatable[ meta::div ] = [ ] ( const userdata_wrapper<const T>& a, const stack_object& obj ) -> decltype( auto )
 				{
 					if constexpr ( detail::Divable<T, T> )
-						if ( obj.is<userdata_wrapper<T>>() )
-							return a.value() / obj.as<userdata_wrapper<T>>().value();
+						if ( obj.is<userdata_wrapper<const T>>() )
+							return a.value() / obj.as<userdata_wrapper<const T>>().value();
 					if constexpr ( detail::Divable<T, double> )
 						if ( obj.is<double>() )
 							return a.value() / obj.as<double>();
@@ -552,11 +552,11 @@ namespace ulua
 			}
 			else if constexpr ( detail::Idivable<T, T> || detail::Idivable<T, int64_t> )
 			{
-				metatable[ meta::idiv ] = [ ] ( const userdata_wrapper<T>& a, const stack_object& obj ) -> size_t
+				metatable[ meta::idiv ] = [ ] ( const userdata_wrapper<const T>& a, const stack_object& obj ) -> size_t
 				{
 					if constexpr ( detail::Idivable<T, T> )
-						if ( obj.is<userdata_wrapper<T>>() )
-							return a.value() / obj.as<userdata_wrapper<T>>().value();
+						if ( obj.is<userdata_wrapper<const T>>() )
+							return a.value() / obj.as<userdata_wrapper<const T>>().value();
 					if constexpr ( detail::Idivable<T, int64_t> )
 						if ( obj.is<double>() )
 							return a.value() / obj.as<int64_t>();
@@ -577,11 +577,11 @@ namespace ulua
 			}
 			else if constexpr ( detail::Modable<T, T> || detail::Modable<T, int64_t> )
 			{
-				metatable[ meta::mod ] = [ ] ( const userdata_wrapper<T>& a, const stack_object& obj ) -> decltype( auto )
+				metatable[ meta::mod ] = [ ] ( const userdata_wrapper<const T>& a, const stack_object& obj ) -> decltype( auto )
 				{
 					if constexpr ( detail::Modable<T, T> )
-						if ( obj.is<userdata_wrapper<T>>() )
-							return a.value() % obj.as<userdata_wrapper<T>>().value();
+						if ( obj.is<userdata_wrapper<const T>>() )
+							return a.value() % obj.as<userdata_wrapper<const T>>().value();
 					if constexpr ( detail::Modable<T, int64_t> )
 						if ( obj.is<double>() )
 							return a.value() % obj.as<int64_t>();
@@ -602,11 +602,11 @@ namespace ulua
 			}
 			else if constexpr ( detail::Powable<T, T> || detail::Powable<T, int64_t> )
 			{
-				metatable[ meta::pow ] = [ ] ( const userdata_wrapper<T>& a, const stack_object& obj ) -> decltype( auto )
+				metatable[ meta::pow ] = [ ] ( const userdata_wrapper<const T>& a, const stack_object& obj ) -> decltype( auto )
 				{
 					if constexpr ( detail::Powable<T, T> )
-						if ( obj.is<userdata_wrapper<T>>() )
-							return pow( a.value(), obj.as<userdata_wrapper<T>>().value() );
+						if ( obj.is<userdata_wrapper<const T>>() )
+							return pow( a.value(), obj.as<userdata_wrapper<const T>>().value() );
 					if constexpr ( detail::Powable<T, int64_t> )
 						if ( obj.is<double>() )
 							return pow( a.value(), obj.as<int64_t>() );
