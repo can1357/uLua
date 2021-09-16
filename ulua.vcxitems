@@ -20,6 +20,7 @@
     <ClInclude Include="$(MSBuildThisFileDirectory)includes\ulua\environment.hpp" />
     <ClInclude Include="$(MSBuildThisFileDirectory)includes\ulua\function.hpp" />
     <ClInclude Include="$(MSBuildThisFileDirectory)includes\ulua\lua_api.hpp" />
+    <ClInclude Include="$(MSBuildThisFileDirectory)includes\ulua\named_arguments.hpp" />
     <ClInclude Include="$(MSBuildThisFileDirectory)includes\ulua\stack.hpp" />
     <ClInclude Include="$(MSBuildThisFileDirectory)includes\ulua\common.hpp" />
     <ClInclude Include="$(MSBuildThisFileDirectory)includes\ulua\lazy.hpp" />
