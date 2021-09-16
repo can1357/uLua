@@ -76,7 +76,6 @@ namespace ulua
 		// Null state view.
 		//
 		inline state_view() : L( nullptr ) {}
-		inline state_view( std::nullptr_t ) : state_view() {}
 		
 		// Created from lua_State directly or indirecly by any other object that has a state.
 		//
