@@ -393,8 +393,8 @@ namespace ulua
 #if ULUA_NO_CTTI
 				type_error( L, idx, "variant<...>" );
 #else
-				std::string name{ detail::ctti_namer<std::variant<Tx...>>{} };
-				type_error( L, idx, name.data() + 5 );
+				const char* name = detail::ctti_namer<std::variant<Tx...>>{};
+				type_error( L, idx, name + 5 /*skip std::*/ );
 #endif
 			}
 			return std::move( result ).value();

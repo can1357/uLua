@@ -74,7 +74,17 @@ namespace ulua
 				//
 				return sig.substr( f, l - f );
 			}
-			inline constexpr operator std::string_view() const { return ctti_namer<T>::__id__<T>(); }
+
+			static constexpr auto name = [ ] ()
+			{
+				constexpr std::string_view view = ctti_namer<T>::__id__<T>();
+				std::array<char, view.length() + 1> data = {};
+				std::copy( view.begin(), view.end(), data.data() );
+				return data;
+			}();
+
+			inline constexpr operator std::string_view() const { return { &name[ 0 ], &name[ name.size() - 1 ] }; }
+			inline constexpr operator const char*() const { return &name[ 0 ]; }
 		};
 
 		// Checks if the type is a tuple or a pair.
