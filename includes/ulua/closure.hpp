@@ -49,7 +49,7 @@ namespace ulua
 	
 			// Stateless lambda:
 			//
-			if constexpr ( Traits::is_lambda && std::is_default_constructible_v<Func> && std::is_trivially_destructible_v<Func> )
+			if constexpr ( Traits::is_lambda && std::is_default_constructible_v<Func> && std::is_trivially_destructible_v<Func> && sizeof( Func ) == sizeof( std::monostate ) )
 			{
 				wrapper = [ ] ( lua_State* L ) -> int
 				{
@@ -180,7 +180,7 @@ namespace ulua
 	{
 		using arguments =   std::variant<detail::popped_vtype_t<typename detail::function_traits<Tx>::arguments>...>;
 		
-		inline constexpr overload() requires ( std::is_default_constructible_v<Tx> && ... ) = default;
+		inline constexpr overload() requires ( ( std::is_default_constructible_v<Tx> && sizeof( Tx ) == sizeof( std::monostate ) ) && ... ) = default;
 		inline constexpr overload( Tx&&... fn ) : Tx( std::forward<Tx>( fn ) )... {}
 
 		template<size_t N> inline constexpr auto& get() { return ( detail::nth_parameter_t<N, Tx...>& ) *this; }
