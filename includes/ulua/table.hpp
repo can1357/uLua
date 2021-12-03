@@ -114,7 +114,7 @@ namespace ulua
 	struct basic_table : Ref, detail::lazy_indexable<basic_table<Ref>>
 	{
 		inline constexpr basic_table() {}
-		template<typename... Tx> requires( sizeof...( Tx ) != 0 && detail::Constructable<Ref, Tx...> )
+		template<typename... Tx> requires( sizeof...( Tx ) != 0 && detail::Constructible<Ref, Tx...> )
 		explicit inline constexpr basic_table( Tx&&... ref ) : Ref( std::forward<Tx>( ref )... ) {}
 
 		// Creating constructor.

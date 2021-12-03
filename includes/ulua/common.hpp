@@ -124,10 +124,10 @@ namespace ulua
 		template<typename T, typename... Args>
 		concept Callable = requires( T&& x ) { x( std::declval<Args>()... ); };
 
-		// Constructable check.
+		// Constructible check.
 		//
 		template<typename T, typename... Args>
-		concept Constructable = requires{ T( std::declval<Args>()... ); };
+		concept Constructible = requires{ T( std::declval<Args>()... ); };
 
 		// Constant series.
 		//

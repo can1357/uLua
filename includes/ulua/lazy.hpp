@@ -135,7 +135,7 @@ namespace ulua
 	struct basic_object : Ref, detail::lazy<basic_object<Ref>>
 	{
 		inline constexpr basic_object() {}
-		template<typename... Tx> requires( sizeof...( Tx ) != 0 && detail::Constructable<Ref, Tx...> )
+		template<typename... Tx> requires( sizeof...( Tx ) != 0 && detail::Constructible<Ref, Tx...> )
 		explicit inline constexpr basic_object( Tx&&... ref ) : Ref( std::forward<Tx>( ref )... ) {}
 	};
 	using object = basic_object<registry_reference>;

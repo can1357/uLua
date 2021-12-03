@@ -11,7 +11,7 @@ namespace ulua
 	struct basic_environment : basic_table<Ref>
 	{
 		inline basic_environment() {}
-		template<typename... Tx> requires( sizeof...( Tx ) != 0 && detail::Constructable<Ref, Tx...> )
+		template<typename... Tx> requires( sizeof...( Tx ) != 0 && detail::Constructible<Ref, Tx...> )
 		explicit inline basic_environment( Tx&&... ref ) : basic_table<Ref>( std::forward<Tx>( ref )... ) {}
 
 		// Creating constructor.

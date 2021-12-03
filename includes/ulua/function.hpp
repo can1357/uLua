@@ -134,7 +134,7 @@ namespace ulua
 	struct basic_function : Ref, detail::lazy_invocable<basic_function<Ref>>
 	{
 		inline constexpr basic_function() {}
-		template<typename... Tx> requires( sizeof...( Tx ) != 0 && detail::Constructable<Ref, Tx...> )
+		template<typename... Tx> requires( sizeof...( Tx ) != 0 && detail::Constructible<Ref, Tx...> )
 		explicit inline constexpr basic_function( Tx&&... ref ) : Ref( std::forward<Tx>( ref )... ) {}
 	};
 	using function =       basic_function<registry_reference>;
