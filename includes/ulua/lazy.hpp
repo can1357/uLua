@@ -94,7 +94,9 @@ namespace ulua::detail
 			else
 			{
 				( ( Ref* ) this )->push();
-				return make_table_proxy<IsRaw>( ( ( Ref* ) this )->state(), stack::top_t{}, true, std::forward<T>( key ) );
+				lua_State* state = ( ( Ref* ) this )->state();
+				( ( Ref* ) this )->reset( unchecked_t{} );
+				return make_table_proxy<IsRaw>( state, stack::top_t{}, true, std::forward<T>( key ) );
 			}
 		}
 		template<typename T> inline auto operator[]( T&& key ) const& { return at( std::forward<T>( key ) ); }
@@ -108,16 +110,16 @@ namespace ulua::detail
 	{
 		template<typename... Tx> inline function_result operator()( Tx&&... args ) const &
 		{ 
-			( ( Ref* ) this )->push(); 
+			( ( Ref* ) this )->push();
 			return pcall( ( ( Ref* ) this )->state(), std::forward<Tx>( args )... ); 
 		}
 		
 		template<typename... Tx> inline function_result operator()( Tx&&... args ) &&
 		{ 
 			( ( Ref* ) this )->push();
-			if constexpr ( Ref::is_direct )
-				( ( Ref* ) this )->reset( unchecked_t{} );
-			return pcall( ( ( Ref* ) this )->state(), std::forward<Tx>( args )... ); 
+			lua_State* state = ( ( Ref* ) this )->state();
+			( ( Ref* ) this )->reset( unchecked_t{} );
+			return pcall( state, std::forward<Tx>( args )... ); 
 		}
 	};
 
