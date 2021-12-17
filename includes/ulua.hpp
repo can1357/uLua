@@ -10,3 +10,4 @@
 #include "ulua/environment.hpp"
 #include "ulua/function.hpp"
 #include "ulua/state.hpp"
+#include "ulua/ffi.hpp"

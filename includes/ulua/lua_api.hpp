@@ -7,6 +7,7 @@
 		#include <lj_obj.h>
 		#include <lj_state.h>
 		#include <lj_cdata.h>
+		#include <lj_cparse.h>
 	};
 	#ifdef ULUA_NO_ACCEL
 		#define ULUA_ACCEL 0

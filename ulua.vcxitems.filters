@@ -54,5 +54,8 @@
     <ClInclude Include="$(MSBuildThisFileDirectory)includes\ulua\named_arguments.hpp">
       <Filter>Includes\ulua</Filter>
     </ClInclude>
+    <ClInclude Include="$(MSBuildThisFileDirectory)includes\ulua\ffi.hpp">
+      <Filter>Includes\ulua</Filter>
+    </ClInclude>
   </ItemGroup>
 </Project>
