@@ -1,14 +1,24 @@
 #pragma once
 #include <lua.hpp>
 
-#if defined(LUAJIT_VERSION) && !defined(ULUA_NO_ACCEL)
-	#define ULUA_ACCEL 1
-	
+#if defined(LUAJIT_VERSION)
+	#define ULUA_JIT 1
 	extern "C" {
 		#include <lj_obj.h>
 		#include <lj_state.h>
+		#include <lj_cdata.h>
 	};
+	#ifdef ULUA_NO_ACCEL
+		#define ULUA_ACCEL 0
+	#else
+		#define ULUA_ACCEL 1
+	#endif
+#else
+	#define ULUA_JIT 0
+	#define ULUA_ACCEL 0
+#endif
 
+#if ULUA_JIT
 	namespace ulua::accel
 	{
 		inline TValue* ref( lua_State* L, int idx )
@@ -66,6 +76,4 @@
 			return int( L->top - L->base );
 		}
 	};
-#else
-	#define ULUA_ACCEL 0
 #endif

@@ -21,8 +21,10 @@ namespace ulua
 		static constexpr library_descriptor os =      { &luaopen_os,       "os" };
 		static constexpr library_descriptor debug =   { &luaopen_debug,    "debug" };
 		static constexpr library_descriptor bit =     { &luaopen_bit,      "bit32" };
+#if ULUA_JIT
 		static constexpr library_descriptor ffi =     { &luaopen_ffi,      "ffi" };
 		static constexpr library_descriptor jit =     { &luaopen_jit,      "jit" };
+#endif
 	};
 
 	// Load result.

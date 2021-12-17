@@ -27,6 +27,8 @@ namespace ulua
 				stack::get_field( table.state(), table.slot(), key, std::bool_constant<Raw>{} );
 			}
 			inline lua_State* state() const { return table.state(); }
+			inline void reset() { table.reset(); }
+			inline void reset( detail::unchecked_t tag ) { table.reset( tag ); }
 
 			// Setter.
 			//

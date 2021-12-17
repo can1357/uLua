@@ -20,6 +20,9 @@ namespace ulua
 		function =       LUA_TFUNCTION,
 		userdata =       LUA_TUSERDATA,
 		thread =         LUA_TTHREAD,
+#if ULUA_JIT
+		cdata =          LUA_TCDATA
+#endif
 	};
 	inline const char* type_name( value_type type ) { return lua_typename( nullptr, ( int ) type ); }
 
@@ -69,6 +72,15 @@ namespace ulua
 	{
 		void* pointer;
 		operator void* () const { return pointer; }
+	};
+
+	struct cdata_value
+	{
+		void*    pointer;
+		CTypeID  type;
+
+		template<typename T>
+		inline T& as() const { return *( T* ) pointer; }
 	};
 
 	// Type traits declaration.
@@ -490,6 +502,38 @@ namespace ulua
 		inline static bool check( lua_State* L, int& idx ) { return type_traits<nil_t>::check( L, idx ); }
 		inline static std::nullptr_t get( lua_State*, int& idx ) { idx++; return nullptr; }
 	};
+
+	// FFI types.
+	//
+#if ULUA_JIT
+	template<>
+	struct type_traits<cdata_value>
+	{
+		inline static int push( lua_State* L, cdata_value value )
+		{
+			if ( !value.pointer )
+				setnilV( L->top );
+			else
+				setcdataV( L, L->top, std::prev( ( GCcdata* ) value.pointer ) );
+			incr_top( L );
+			return 1;
+		}
+		inline static bool check( lua_State* L, int& idx )
+		{
+			return tviscdata( accel::ref( L, idx++ ) );
+		}
+		inline static cdata_value get( lua_State* L, int& idx )
+		{
+			auto* tv = accel::ref( L, idx++ );
+			if ( tviscdata( tv ) ) [[likely]]
+			{
+				auto * cd = cdataV( tv );
+				return { cdataptr( cd ), cd->ctypeid };
+			}
+			return { nullptr, CTypeID( -1 ) };
+		}
+	};
+#endif
 
 	// Pseudo type traits that simply return the active state.
 	//
