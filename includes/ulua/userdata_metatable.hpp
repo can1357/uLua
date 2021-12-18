@@ -120,6 +120,27 @@ namespace ulua
 			static_assert( sizeof( Field ) == -1, "Invalid constant member type." );
 		}
 	}
+	template<typename T>
+	static constexpr auto static_member( std::string_view name, T&& value ) 
+	{
+		using V = std::decay_t<T>;
+		if constexpr ( std::is_empty_v<V> )
+		{
+			return member_descriptor{
+				name,
+				[ ] ( auto* ) { return V{}; },
+				std::nullopt
+			};
+		}
+		else
+		{
+			return member_descriptor{
+				name,
+				[ v = std::forward<T>( value ) ] ( auto* ) { return v; },
+				std::nullopt
+			};
+		}
+	}
 	template<auto Field>
 	static constexpr auto member( std::string_view name, readonly_t )
 	{
