@@ -5,6 +5,10 @@
 #include "state.hpp"
 #include "userdata.hpp"
 
+#ifndef ULUA_CTYPE_TAGGED
+	#define ULUA_CTYPE_TAGGED 0
+#endif
+
 #if ULUA_JIT
 namespace ulua::ffi
 {
@@ -44,6 +48,8 @@ namespace ulua
 	struct ctype_t {};
 	template<typename T>
 	concept UserCType = std::is_base_of_v<ctype_t, user_traits<T>>;
+	template<typename T>
+	concept CTypeHasInlineCDef = requires { T::cdef; };
 
 	// Replace userdata wrapper.
 	//
@@ -52,13 +58,22 @@ namespace ulua
 	{
 		inline static uint32_t make_tag() { return ( uint32_t ) ( uint64_t ) &__userdata_tag<std::remove_const_t<T>>; }
 
+#if ULUA_CTYPE_TAGGED
 		uint32_t                       tag;
 		mutable std::remove_const_t<T> storage;
 
 		template<typename... Tx>
 		userdata_wrapper( Tx&&... args ) : tag( make_tag() ), storage( std::forward<Tx>( args )... ) {}
-
 		inline bool check_type() const { return tag == make_tag(); }
+#else
+
+		mutable std::remove_const_t<T> storage;
+
+		template<typename... Tx>
+		userdata_wrapper( Tx&&... args ) : storage( std::forward<Tx>( args )... ) {}
+		inline bool check_type() const { return true; }
+#endif
+
 		inline constexpr bool check_qual() const { return true; }
 
 		inline operator T*() const { return &storage; }
@@ -120,10 +135,11 @@ namespace ulua
 		inline static int emplace( lua_State* L, Tx&&... args )
 		{
 			CTypeID type_id;
-			if ( stack::create_metatable( L, userdata_mt_name<T>().data() ) ) [[unlikely]]
+			if ( stack::create_metatable( L, userdata_mt_name<std::remove_const_t<T>>().data() ) ) [[unlikely]]
 			{
 				// Create the C definition.
-				ffi::cdef( L, user_traits<std::remove_const_t<T>>::cdef ).assert();
+				if constexpr( CTypeHasInlineCDef<user_traits<std::remove_const_t<T>>> )
+					ffi::cdef( L, user_traits<std::remove_const_t<T>>::cdef ).assert();
 				// Get the type ID.
 				type_id = ffi::typeid_of( L, userdata_name<std::remove_const_t<T>>().data() );
 				// Setup the metatable.
