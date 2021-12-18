@@ -102,6 +102,16 @@ namespace ulua
 		template<typename T>
 		static constexpr bool is_variant_v = is_variant<T>::value;
 	
+		// Remove noexcept.
+		//
+		template<typename T> struct remove_noexcept { using type = T; };
+		template<typename C, typename R, typename... Tx>     struct remove_noexcept<R(C::*)(Tx...) noexcept>             { using type = R(C::*)(Tx...); };
+		template<typename C, typename R, typename... Tx>     struct remove_noexcept<R(C::*)(Tx..., ...) noexcept>        { using type = R(C::*)(Tx..., ...); };
+		template<typename C, typename R, typename... Tx>     struct remove_noexcept<R(C::*)(Tx...) const noexcept>       { using type = R(C::*)(Tx...) const; };
+		template<typename C, typename R, typename... Tx>     struct remove_noexcept<R(C::*)(Tx..., ...)  const noexcept> { using type = R(C::*)(Tx..., ...) const; };
+		template<typename T>
+		using remove_noexcept_t = typename remove_noexcept<T>::type;
+
 		// Checks if the type is a member function or not.
 		//
 		template<typename T>                                 struct is_member_function { static constexpr bool value = false; };
@@ -110,7 +120,7 @@ namespace ulua
 		template<typename C, typename R, typename... Tx>     struct is_member_function<R(C::*)(Tx...) const>       { static constexpr bool value = true; };
 		template<typename C, typename R, typename... Tx>     struct is_member_function<R(C::*)(Tx..., ...)  const> { static constexpr bool value = true; };
 		template<typename T>
-		static constexpr bool is_member_function_v = is_member_function<T>::value;
+		static constexpr bool is_member_function_v = is_member_function<remove_noexcept_t<T>>::value;
 	
 		// Checks if the type is a member field or not.
 		//
@@ -190,7 +200,9 @@ namespace ulua
 		// Function traits.
 		//
 		template<typename F>
-		struct function_traits;
+		struct function_traits {};
+		template<typename F> requires ( !std::is_same_v<remove_noexcept_t<F>, F> )
+		struct function_traits<F> : function_traits<remove_noexcept_t<F>> {};
 
 		// Function pointers:
 		//
