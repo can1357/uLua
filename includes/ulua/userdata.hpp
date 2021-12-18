@@ -106,7 +106,6 @@ namespace ulua
 	{
 		pointer    = 0b00,
 		value      = 0b01,
-		shared_ptr = 0b10,
 	};
 
 	// Userdata wrappers.
@@ -122,7 +121,7 @@ namespace ulua
 		T*        pointer;
 		uint64_t  tag          : 32;
 		uint64_t  is_const     : 1;
-		uint64_t  storage_type : 2;
+		uint64_t  storage_type : 1;
 
 		inline userdata_wrapper() : pointer( nullptr ), tag( 0 ), is_const( 0 ), storage_type( 0 ) {}
 		inline userdata_wrapper( T* pointer, userdata_storage type ) : pointer( pointer ), tag( make_tag() ), is_const( std::is_const_v<T> ), storage_type( ( int64_t ) type ) {}
@@ -143,7 +142,6 @@ namespace ulua
 			{
 				case userdata_storage::pointer:    return;
 				case userdata_storage::value:      return std::destroy_at( store<T>() );
-				case userdata_storage::shared_ptr: return std::destroy_at( store<std::shared_ptr<T>>() );
 				default:                           detail::assume_unreachable();
 			}
 		}
@@ -159,12 +157,6 @@ namespace ulua
 	struct userdata_by_pointer : userdata_wrapper<T>
 	{
 		inline userdata_by_pointer( T* pointer ) : userdata_wrapper<T>( pointer, userdata_storage::pointer ) {}
-	};
-	template<typename T>
-	struct userdata_by_shared_ptr : userdata_wrapper<T>
-	{
-		std::shared_ptr<T> value;
-		inline userdata_by_shared_ptr( std::shared_ptr<T> value ) : userdata_wrapper<T>( value.get(), userdata_storage::value ), value( std::move( value ) ) {}
 	};
 	
 	// Implement type traits.
@@ -239,19 +231,6 @@ namespace ulua
 		}
 		inline static bool check( lua_State* L, int& idx ) { return user_type_traits<T>::check( L, idx ); }
 	};
-	template<typename T>
-	struct user_type_traits<std::shared_ptr<T>>
-	{
-		inline static int push( lua_State* L, std::shared_ptr<T> pointer )
-		{
-			stack::emplace_userdata<userdata_by_shared_ptr<T>>( L, std::move( pointer ) );
-			userdata_metatable<std::remove_const_t<T>>::push( L );
-			stack::set_metatable( L, -2 );
-			return 1;
-		}
-		inline static bool check( lua_State* L, int idx ) { return user_type_traits<T>::check( L, idx ); }
-		// No getter.
-	};
 	template<UserType T> struct type_traits<T&&> :                                        user_type_traits<T&&> {};
 	template<UserType T> struct type_traits<T&> :                                         user_type_traits<T> {};
 	template<UserType T> struct type_traits<T> :                                          user_type_traits<const T> {};
@@ -259,10 +238,6 @@ namespace ulua
 	template<UserType T> struct type_traits<const T&&> :                                  user_type_traits<const T> {};
 	template<UserType T> struct type_traits<T*> :                                         user_type_traits<T*> {};
 	template<UserType T> struct type_traits<const T*> :                                   user_type_traits<const T*> {};
-	template<UserType T> struct type_traits<std::shared_ptr<T>> :                         user_type_traits<std::shared_ptr<T>> {};
-	template<UserType T> struct type_traits<std::shared_ptr<const T>> :                   user_type_traits<std::shared_ptr<const T>> {};
 	template<UserType T> struct type_traits<std::reference_wrapper<T>> :                  user_type_traits<T> {};
 	template<UserType T> struct type_traits<std::reference_wrapper<const T>> :            user_type_traits<const T> {};
-	template<UserType T, typename Dx> struct type_traits<std::unique_ptr<T, Dx>> :        user_type_traits<std::shared_ptr<T>> {};
-	template<UserType T, typename Dx> struct type_traits<std::unique_ptr<const T, Dx>> :  user_type_traits<std::shared_ptr<const T>> {};
 };
