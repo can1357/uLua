@@ -364,7 +364,7 @@ namespace ulua
 				{
 					if constexpr ( detail::HasLength<T> )
 						return a.get()->length();
-					if constexpr ( detail::HasSize<T> )
+					else if constexpr ( detail::HasSize<T> )
 						return std::size( a.value() );
 					else
 						return std::end( a.value() ) - std::begin( a.value() );
@@ -647,7 +647,7 @@ namespace ulua
 		//
 		inline static void push( lua_State* L )
 		{
-			if ( stack::create_metatable( L, userdata_mt_name<T>().data() ) )
+			if ( stack::create_metatable( L, userdata_mt_name<T>().data() ) ) [[unlikely]]
 				setup( L, stack::top_t{} );
 		}
 
