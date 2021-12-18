@@ -462,23 +462,29 @@ namespace ulua
 			{
 				set_meta<meta::add>( metatable );
 			}
-			else if constexpr ( detail::Addable<T, T> || detail::Addable<T, double> )
+			else if constexpr ( detail::Addable<T, T> || detail::Addable<T, double> || detail::Addable<double, T> )
 			{
-				metatable[ meta::add ] = [ ] ( const userdata_wrapper<const T>& a, const stack_object& obj ) -> decltype( auto )
+				metatable[ meta::add ] = [ ] ( const stack_object& a, const stack_object& b ) -> decltype( auto )
 				{
-					if constexpr ( detail::Addable<T, T> )
-						if ( obj.is<userdata_wrapper<const T>>() )
-							return a.value() + obj.as<userdata_wrapper<const T>>().value();
-					if constexpr ( detail::Addable<T, double> )
-						if ( obj.is<double>() )
-							return a.value() + obj.as<double>();
+					bool a_fp = a.is<double>();
+					bool a_uv = !a_fp && a.is<userdata_wrapper<const T>>();
+					bool b_fp = b.is<double>();
+					bool b_uv = !b_fp && b.is<userdata_wrapper<const T>>();
 
-					if constexpr ( detail::Addable<T, T> && detail::Addable<T, double> )
-						type_error( obj.state(), obj.slot(), "%s or number", userdata_name<T>().data() );
-					else if constexpr ( detail::Addable<T, double> )
-						type_error( obj.state(), obj.slot(), "number" );
+					if constexpr ( detail::Addable<T, T> )
+						if ( a_uv && b_uv )
+							return a.as<userdata_wrapper<const T>>().value() + b.as<userdata_wrapper<const T>>().value();
+					if constexpr ( detail::Addable<T, double> )
+						if ( a_uv && b_fp )
+							return a.as<userdata_wrapper<const T>>().value() + b.as<double>();
+					if constexpr ( detail::Addable<double, T> )
+						if ( a_fp && b_uv )
+							return a.as<double>() + b.as<userdata_wrapper<const T>>().value();
+
+					if ( a_uv ) 
+						type_error( b.state(), b.slot(), b_uv ? "number" : userdata_name<T>().data() );
 					else
-						type_error( obj.state(), obj.slot(), userdata_name<T>().data() );
+						type_error( a.state(), a.slot(), a_uv ? "number" : userdata_name<T>().data() );
 				};
 			}
 			
@@ -510,23 +516,29 @@ namespace ulua
 			{
 				set_meta<meta::mul>( metatable );
 			}
-			else if constexpr ( detail::Mulable<T, T> || detail::Mulable<T, double> )
+			else if constexpr ( detail::Mulable<T, T> || detail::Mulable<T, double> || detail::Mulable<double, T> )
 			{
-				metatable[ meta::mul ] = [ ] ( const userdata_wrapper<const T>& a, const stack_object& obj ) -> decltype( auto )
+				metatable[ meta::mul ] = [ ] ( const stack_object& a, const stack_object& b ) -> decltype( auto )
 				{
-					if constexpr ( detail::Mulable<T, T> )
-						if ( obj.is<userdata_wrapper<const T>>() )
-							return a.value() * obj.as<userdata_wrapper<const T>>().value();
-					if constexpr ( detail::Mulable<T, double> )
-						if ( obj.is<double>() )
-							return a.value() * obj.as<double>();
+					bool a_fp = a.is<double>();
+					bool a_uv = !a_fp && a.is<userdata_wrapper<const T>>();
+					bool b_fp = b.is<double>();
+					bool b_uv = !b_fp && b.is<userdata_wrapper<const T>>();
 
-					if constexpr ( detail::Mulable<T, T> && detail::Mulable<T, double> )
-						type_error( obj.state(), obj.slot(), "%s or number", userdata_name<T>().data() );
-					else if constexpr ( detail::Mulable<T, double> )
-						type_error( obj.state(), obj.slot(), "number" );
+					if constexpr ( detail::Mulable<T, T> )
+						if ( a_uv && b_uv )
+							return a.as<userdata_wrapper<const T>>().value() * b.as<userdata_wrapper<const T>>().value();
+					if constexpr ( detail::Mulable<T, double> )
+						if ( a_uv && b_fp )
+							return a.as<userdata_wrapper<const T>>().value() * b.as<double>();
+					if constexpr ( detail::Mulable<double, T> )
+						if ( a_fp && b_uv )
+							return a.as<double>() * b.as<userdata_wrapper<const T>>().value();
+
+					if ( a_uv ) 
+						type_error( b.state(), b.slot(), b_uv ? "number" : userdata_name<T>().data() );
 					else
-						type_error( obj.state(), obj.slot(), userdata_name<T>().data() );
+						type_error( a.state(), a.slot(), a_uv ? "number" : userdata_name<T>().data() );
 				};
 			}
 
