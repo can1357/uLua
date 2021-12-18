@@ -7,27 +7,6 @@
 #if ULUA_JIT
 namespace ulua::ffi
 {
-	// Parses the given C code in the state view, returns the error code.
-	//
-	inline int cdef( lua_State* state, const char* src )
-	{
-		stack::push( state, src );
-
-		GCstr* s = strV( accel::ref( state, -1 ) );
-		CPState cp;
-		int errcode;
-		cp.L = state;
-		cp.cts = ctype_cts( state );
-		cp.srcname = strdata( s );
-		cp.p = strdata( s );
-		cp.param = cp.L->base + 1;
-		cp.mode = CPARSE_MODE_MULTI | CPARSE_MODE_DIRECT;
-		errcode = lj_cparse( &cp );
-
-		stack::pop_n( state, 1 );
-		return errcode;
-	}
-
 	// Gets the typeid of a given type name.
 	//
 	inline CTypeID typeid_of( lua_State* state, const char* name )
@@ -39,6 +18,13 @@ namespace ulua::ffi
 		CTypeID id = lj_ctype_getname( ctype_cts( state ), &t, strV( accel::ref( state, -1 ) ), mask );
 		stack::pop_n( state, 1 );
 		return id;
+	}
+
+	// Parses the given C code in the state view.
+	//
+	inline function_result cdef( state_view state, std::string_view src )
+	{
+		return state[ "ffi" ][ "cdef" ]( src );
 	}
 
 	// Sets the metatable for a given type name.
