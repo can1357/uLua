@@ -3,6 +3,7 @@
 #include "lazy.hpp"
 #include "table.hpp"
 #include "state.hpp"
+#include "userdata.hpp"
 
 #if ULUA_JIT
 namespace ulua::ffi
@@ -33,73 +34,136 @@ namespace ulua::ffi
 	{
 		return state[ "ffi" ][ "metatype" ]( type_name, tbl );
 	}
+};
 
-	// C value wrapper.
+
+namespace ulua
+{
+	// C type traits.
 	//
-	template<typename T, Reference Ref>
-	struct basic_cvalue : Ref
+	struct ctype_t {};
+	template<typename T>
+	concept UserCType = std::is_base_of_v<ctype_t, user_traits<T>>;
+
+	// Replace userdata wrapper.
+	//
+	template<typename T> requires UserCType<std::remove_const_t<T>>
+	struct userdata_wrapper<T>
 	{
-		inline constexpr basic_cvalue() {}
-		template<typename... Tx> requires( sizeof...( Tx ) != 0 && detail::Constructible<Ref, Tx...> )
-		explicit inline constexpr basic_cvalue( Tx&&... ref ) : Ref( std::forward<Tx>( ref )... ) {}
+		inline static uint32_t make_tag() { return ( uint32_t ) ( uint64_t ) &__userdata_tag<std::remove_const_t<T>>; }
 
-		// Creating constructor.
-		//
+		uint32_t                       tag;
+		mutable std::remove_const_t<T> storage;
+
 		template<typename... Tx>
-		inline basic_cvalue( lua_State* L, create, CTypeID id, Tx&&... args )
-		{
-			CTState* cts = ctype_cts( L );
-			GCcdata* cd = lj_cdata_new( cts, id, sizeof( T )  );
+		userdata_wrapper( Tx&&... args ) : tag( make_tag() ), storage( std::forward<Tx>( args )... ) {}
 
+		inline bool check_type() const { return tag == make_tag(); }
+		inline constexpr bool check_qual() const { return true; }
+
+		inline operator T*() const { return &storage; }
+		inline T* get() const { return &storage; }
+		inline T& value() const { return storage; }
+
+		inline void destroy() const { std::destroy_at( &storage ); }
+	};
+
+	// Replace userdata_by_value.
+	//
+	template<typename T> requires UserCType<std::remove_const_t<T>>
+	struct userdata_by_value<T> : userdata_wrapper<T>
+	{
+		using userdata_wrapper<T>::userdata_wrapper;
+	};
+
+	// Disallow userdata_by_pointer.
+	//
+	template<typename T> requires UserCType<std::remove_const_t<T>>
+	struct userdata_by_pointer<T>
+	{
+		userdata_by_pointer() = delete;
+	};
+
+	// Replace type traits of the userdata.
+	//
+	template<typename T> requires UserCType<std::remove_const_t<T>>
+	struct type_traits<userdata_wrapper<T>>
+	{
+		// No pusher.
+		inline static bool check( lua_State* L, int& idx ) 
+		{ 
+			auto* tv = accel::ref( L, idx++ );
+			if ( !tviscdata( tv ) )
+				return false;
+			auto* cd = cdataV( tv );
+			auto* wr = ( userdata_wrapper<T>* ) cdataptr( cd );
+			return wr->check_type();
+		}
+		inline static userdata_wrapper<T>& get( lua_State* L, int& idx ) 
+		{
+			auto* tv = accel::ref( L, idx++ );
+			if ( !tviscdata( tv ) )
+				type_error( L, idx - 1, userdata_name<std::remove_const_t<T>>().data() );
+			auto* cd = cdataV( tv );
+			auto* wr = ( userdata_wrapper<T>* ) cdataptr( cd );
+			if ( !wr->check_type() )
+				type_error( L, idx - 1, userdata_name<std::remove_const_t<T>>().data() );
+			return *wr;
+		}
+	};
+	template<typename T> requires UserCType<std::remove_const_t<T>>
+	struct user_type_traits<T> : emplacable_tag_t
+	{
+		using meta = userdata_metatable<std::remove_const_t<T>>;
+
+		template<typename... Tx>
+		inline static int emplace( lua_State* L, Tx&&... args )
+		{
+			CTypeID type_id;
+			if ( stack::create_metatable( L, userdata_mt_name<T>().data() ) ) [[unlikely]]
+			{
+				// Create the C definition.
+				ffi::cdef( L, user_traits<std::remove_const_t<T>>::cdef ).assert();
+				// Get the type ID.
+				type_id = ffi::typeid_of( L, userdata_name<std::remove_const_t<T>>().data() );
+				// Setup the metatable.
+				meta::setup( L, stack::top_t{} );
+				// Add the __cid property.
+				ulua::table table{ L, stack::top_t{} };
+				table[ "__cid" ] = type_id;
+				// Set the type metatable.
+				ffi::set_metatable( L, userdata_name<std::remove_const_t<T>>().data(), table );
+			}
+			else
+			{
+				// Read the __cid property.
+				ulua::stack_table table{ L, stack::top_t{} };
+				type_id = table[ "__cid" ];
+			}
+
+			// Emplace the C type.
+			//
+			auto* cts = ctype_cts( L );
+			auto* cd = lj_cdata_new( cts, type_id, sizeof( userdata_wrapper<T> ) );
 			setcdataV( L, L->top, cd );
 			incr_top( L );
-
-			Ref ref{ L, stack::top_t{} };
-			Ref::swap( ref );
-
-			new ( cdataptr( cd ) ) T( std::forward<Tx>( args )... );
+			new ( cdataptr( cd ) ) userdata_wrapper<T>( std::forward<Tx>( args )... );
+			return 1;
 		}
-
-		// Gets the type id.
-		//
-		CTypeID get_typeid() const 
-		{ 
-			if constexpr ( Ref::is_direct )
-			{
-				return cdataV( accel::ref( Ref::L, Ref::slot() ) )->ctypeid;
-			}
-			else
-			{
-				Ref::push();
-				auto r = cdataV( accel::ref( Ref::L, stack::top_t{} ) )->ctypeid;
-				stack::pop_n( Ref::L, 1 );
-				return r;
-			}
-		}
-
-		// Gets the raw pointer.
-		//
-		T* get_pointer() const 
+		template<typename V = T>
+		inline static int push( lua_State* L, V&& value )
 		{
-			if constexpr ( Ref::is_direct )
-			{
-				return ( T* ) cdataptr( cdataV( accel::ref( Ref::L, Ref::slot() ) ) );
-			}
-			else
-			{
-				Ref::push();
-				auto r = ( T* ) cdataptr( cdataV( accel::ref( Ref::L, stack::top_t{} ) ) );
-				stack::pop_n( Ref::L, 1 );
-				return r;
-			}
+			return emplace( L, std::forward<V>( value ) );
 		}
-		T& operator*() const { return *get_pointer(); }
-		T* operator->() const { return get_pointer(); }
+		inline static bool check( lua_State* L, int& idx )
+		{
+			return type_traits<userdata_wrapper<T>>::check( L, idx );
+		}
+		inline static std::reference_wrapper<T> get( lua_State* L, int& idx )
+		{
+			return type_traits<userdata_wrapper<T>>::get( L, idx ).value();
+		}
 	};
-	
-	template<typename T>
-	using cvalue =       basic_cvalue<T, registry_reference>;
-	template<typename T>
-	using stack_cvalue = basic_cvalue<T, stack_reference>;
 };
+
 #endif
