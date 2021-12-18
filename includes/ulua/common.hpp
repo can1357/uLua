@@ -272,8 +272,10 @@ namespace ulua
 	// Compiler specifics.
 	//
 #if defined(__GNUC__) || defined(__clang__)
+		#define ULUA_INLINE __attribute__((always_inline))
 		#define ULUA_COLD [[gnu::noinline, gnu::cold]]
 #elif _MSC_VER
+		#define ULUA_INLINE [[msvc::forceinline]]
 		#define ULUA_COLD __declspec(noinine)
 #endif
 	

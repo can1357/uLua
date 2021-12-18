@@ -158,7 +158,7 @@ namespace ulua
 	template<auto F> requires detail::Invocable<decltype(F)>
 	struct type_traits<const_tag<F>>
 	{
-		inline static int push( lua_State* L, const_tag<F> ) 
+		ULUA_INLINE static int push( lua_State* L, const_tag<F> ) 
 		{
 			return detail::push_closure( L, const_tag<F>{} );
 		}
@@ -167,7 +167,7 @@ namespace ulua
 	struct type_traits<F>
 	{
 		template<typename V>
-		inline static int push( lua_State* L, V&& func ) 
+		ULUA_INLINE static int push( lua_State* L, V&& func )
 		{
 			return detail::push_closure<V>( L, std::forward<V>( func ) );
 		}

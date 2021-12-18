@@ -105,7 +105,7 @@ namespace ulua
 	struct type_traits<userdata_wrapper<T>>
 	{
 		// No pusher.
-		inline static bool check( lua_State* L, int& idx ) 
+		ULUA_INLINE static bool check( lua_State* L, int& idx )
 		{ 
 			auto* tv = accel::ref( L, idx++ );
 			if ( !tviscdata( tv ) )
@@ -114,7 +114,7 @@ namespace ulua
 			auto* wr = ( userdata_wrapper<T>* ) cdataptr( cd );
 			return wr->check_type();
 		}
-		inline static userdata_wrapper<T>& get( lua_State* L, int& idx ) 
+		ULUA_INLINE static userdata_wrapper<T>& get( lua_State* L, int& idx )
 		{
 			auto* tv = accel::ref( L, idx++ );
 			if ( !tviscdata( tv ) )
@@ -132,7 +132,7 @@ namespace ulua
 		using meta = userdata_metatable<std::remove_const_t<T>>;
 
 		template<typename... Tx>
-		inline static int emplace( lua_State* L, Tx&&... args )
+		ULUA_INLINE static int emplace( lua_State* L, Tx&&... args )
 		{
 			CTypeID type_id;
 			if ( stack::create_metatable( L, userdata_mt_name<std::remove_const_t<T>>().data() ) ) [[unlikely]]
@@ -167,15 +167,15 @@ namespace ulua
 			return 1;
 		}
 		template<typename V = T>
-		inline static int push( lua_State* L, V&& value )
+		ULUA_INLINE static int push( lua_State* L, V&& value )
 		{
 			return emplace( L, std::forward<V>( value ) );
 		}
-		inline static bool check( lua_State* L, int& idx )
+		ULUA_INLINE static bool check( lua_State* L, int& idx )
 		{
 			return type_traits<userdata_wrapper<T>>::check( L, idx );
 		}
-		inline static std::reference_wrapper<T> get( lua_State* L, int& idx )
+		ULUA_INLINE static std::reference_wrapper<T> get( lua_State* L, int& idx )
 		{
 			return type_traits<userdata_wrapper<T>>::get( L, idx ).value();
 		}

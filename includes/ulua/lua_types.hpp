@@ -107,7 +107,7 @@ namespace ulua
 	template<typename T> requires std::is_integral_v<T>
 	struct type_traits<T>
 	{
-		inline static int push( lua_State* L, T value )
+		ULUA_INLINE static int push( lua_State* L, T value )
 		{
 #if ULUA_ACCEL
 			setintptrV( L->top, value );
@@ -117,7 +117,7 @@ namespace ulua
 #endif
 			return 1;
 		}
-		inline static bool check( lua_State* L, int& idx )
+		ULUA_INLINE static bool check( lua_State* L, int& idx )
 		{
 #if ULUA_ACCEL
 			return tvisnumber( accel::ref( L, idx++ ) );
@@ -125,7 +125,7 @@ namespace ulua
 			return lua_type( L, idx++ ) == ( int ) value_type::number;
 #endif
 		}
-		inline static T get( lua_State* L, int& idx )
+		ULUA_INLINE static T get( lua_State* L, int& idx )
 		{
 #if ULUA_ACCEL
 			auto* tv = accel::ref( L, idx++ );
@@ -143,7 +143,7 @@ namespace ulua
 	template<typename T> requires std::is_floating_point_v<T>
 	struct type_traits<T>
 	{
-		inline static int push( lua_State* L, T value )
+		ULUA_INLINE static int push( lua_State* L, T value )
 		{
 #if ULUA_ACCEL
 			if ( value != value )
@@ -156,7 +156,7 @@ namespace ulua
 #endif
 			return 1;
 		}
-		inline static bool check( lua_State* L, int& idx )
+		ULUA_INLINE static bool check( lua_State* L, int& idx )
 		{
 #if ULUA_ACCEL
 			return tvisnumber( accel::ref( L, idx++ ) );
@@ -164,7 +164,7 @@ namespace ulua
 			return lua_type( L, idx++ ) == ( int ) value_type::number;
 #endif
 		}
-		inline static T get( lua_State* L, int& idx )
+		ULUA_INLINE static T get( lua_State* L, int& idx )
 		{
 #if ULUA_ACCEL
 			auto* tv = accel::ref( L, idx++ );
@@ -182,12 +182,12 @@ namespace ulua
 	template<>
 	struct type_traits<std::string_view>
 	{
-		inline static int push( lua_State* L, std::string_view value )
+		ULUA_INLINE static int push( lua_State* L, std::string_view value )
 		{
 			lua_pushlstring( L, value.data(), value.length() );
 			return 1;
 		}
-		inline static bool check( lua_State* L, int& idx )
+		ULUA_INLINE static bool check( lua_State* L, int& idx )
 		{
 #if ULUA_ACCEL
 			return tvisstr( accel::ref( L, idx++ ) );
@@ -195,7 +195,7 @@ namespace ulua
 			return lua_type( L, idx++ ) == ( int ) value_type::string;
 #endif
 		}
-		inline static std::string_view get( lua_State* L, int& idx )
+		ULUA_INLINE static std::string_view get( lua_State* L, int& idx )
 		{
 #if ULUA_ACCEL
 			auto* tv = accel::ref( L, idx++ );
@@ -213,17 +213,17 @@ namespace ulua
 	template<>
 	struct type_traits<const char*> : type_traits<std::string_view>
 	{
-		inline static const char* get( lua_State* L, int& idx ) { return luaL_checkstring( L, idx++ ); }
+		ULUA_INLINE static const char* get( lua_State* L, int& idx ) { return luaL_checkstring( L, idx++ ); }
 	};
 	template<>
 	struct type_traits<std::string> : type_traits<std::string_view>
 	{
-		inline static std::string get( lua_State* L, int& idx ) { return std::string{ type_traits<std::string_view>::get( L, idx ) }; }
+		ULUA_INLINE static std::string get( lua_State* L, int& idx ) { return std::string{ type_traits<std::string_view>::get( L, idx ) }; }
 	};
 	template<>
 	struct type_traits<nil_t>
 	{
-		inline static int push( lua_State* L, nil_t )
+		ULUA_INLINE static int push( lua_State* L, nil_t )
 		{
 #if ULUA_ACCEL
 			setnilV( L->top );
@@ -233,11 +233,11 @@ namespace ulua
 #endif
 			return 1;
 		}
-		inline static bool check( lua_State* L, int& idx )
+		ULUA_INLINE static bool check( lua_State* L, int& idx )
 		{
 			return lua_type( L, idx++ ) <= ( int ) value_type::nil;
 		}
-		inline static nil_t get( lua_State*, int& idx )
+		ULUA_INLINE static nil_t get( lua_State*, int& idx )
 		{
 			idx++;
 			return nil;
@@ -246,7 +246,7 @@ namespace ulua
 	template<>
 	struct type_traits<bool>
 	{
-		inline static int push( lua_State* L, bool value )
+		ULUA_INLINE static int push( lua_State* L, bool value )
 		{
 #if ULUA_ACCEL
 			setboolV( L->top, value );
@@ -256,7 +256,7 @@ namespace ulua
 #endif
 			return 1;
 		}
-		inline static bool check( lua_State* L, int& idx )
+		ULUA_INLINE static bool check( lua_State* L, int& idx )
 		{
 #if ULUA_ACCEL
 			return tvisbool( accel::ref( L, idx++ ) );
@@ -264,7 +264,7 @@ namespace ulua
 			return lua_type( L, idx++ ) == ( int ) value_type::boolean;
 #endif
 		}
-		inline static bool get( lua_State* L, int& idx )
+		ULUA_INLINE static bool get( lua_State* L, int& idx )
 		{
 #if ULUA_ACCEL
 			return tvistruecond( accel::ref( L, idx++ ) );
@@ -276,12 +276,12 @@ namespace ulua
 	template<>
 	struct type_traits<cfunction_t>
 	{
-		inline static int push( lua_State* L, cfunction_t value )
+		ULUA_INLINE static int push( lua_State* L, cfunction_t value )
 		{
 			lua_pushcfunction( L, value );
 			return 1;
 		}
-		inline static bool check( lua_State* L, int& idx )
+		ULUA_INLINE static bool check( lua_State* L, int& idx )
 		{
 #if ULUA_ACCEL
 			return tvisfunc( accel::ref( L, idx++ ) );
@@ -289,7 +289,7 @@ namespace ulua
 			return lua_tocfunction( L, idx++ );
 #endif
 		}
-		inline static cfunction_t get( lua_State* L, int& idx )
+		ULUA_INLINE static cfunction_t get( lua_State* L, int& idx )
 		{
 			int i = idx;
 			if ( auto f = lua_tocfunction( L, idx++ ) ) [[likely]]
@@ -300,12 +300,12 @@ namespace ulua
 	template<>
 	struct type_traits<light_userdata>
 	{
-		inline static int push( lua_State* L, light_userdata value )
+		ULUA_INLINE static int push( lua_State* L, light_userdata value )
 		{
 			lua_pushlightuserdata( L, value );
 			return 1;
 		}
-		inline static bool check( lua_State* L, int& idx )
+		ULUA_INLINE static bool check( lua_State* L, int& idx )
 		{
 #if ULUA_ACCEL
 			return tvislightud( accel::ref( L, idx++ ) );
@@ -313,7 +313,7 @@ namespace ulua
 			return lua_type( L, idx++ ) == ( int ) value_type::light_userdata;
 #endif
 		}
-		inline static light_userdata get( lua_State* L, int& idx )
+		ULUA_INLINE static light_userdata get( lua_State* L, int& idx )
 		{
 #if ULUA_ACCEL
 			auto* tv = accel::ref( L, idx++ );
@@ -329,7 +329,7 @@ namespace ulua
 	struct type_traits<userdata_value>
 	{
 		// No pusher.
-		inline static bool check( lua_State* L, int& idx )
+		ULUA_INLINE static bool check( lua_State* L, int& idx )
 		{
 #if ULUA_ACCEL
 			return tvisudata( accel::ref( L, idx++ ) );
@@ -337,7 +337,7 @@ namespace ulua
 			return lua_type( L, idx++ ) == ( int ) value_type::userdata;
 #endif
 		}
-		inline static userdata_value get( lua_State* L, int& idx )
+		ULUA_INLINE static userdata_value get( lua_State* L, int& idx )
 		{
 #if ULUA_ACCEL
 			auto* tv = accel::ref( L, idx++ );
@@ -360,7 +360,7 @@ namespace ulua
 	struct type_traits<std::variant<Tx...>>
 	{
 		template<typename Var>
-		inline static int push( lua_State* L, Var&& value )
+		ULUA_INLINE static int push( lua_State* L, Var&& value )
 		{
 			size_t idx = value.index();
 			if ( idx == std::variant_npos ) [[unlikely]]
@@ -370,7 +370,7 @@ namespace ulua
 				return type_traits<T>::push( L, std::forward<T>( v ) );
 			} );
 		}
-		inline static bool check( lua_State* L, int& idx )
+		ULUA_INLINE static bool check( lua_State* L, int& idx )
 		{
 			bool valid = false;
 			detail::enum_indices<sizeof...( Tx )>( [ & ] <size_t N> ( const_tag<N> )
@@ -388,7 +388,7 @@ namespace ulua
 			return valid;
 		}
 		using variant_result_t = std::variant<detail::popped_type_t<Tx>...>;
-		inline static variant_result_t get( lua_State* L, int& idx ) 
+		ULUA_INLINE static variant_result_t get( lua_State* L, int& idx )
 		{
 			std::optional<variant_result_t> result = {};
 			detail::enum_indices<sizeof...( Tx )>( [ & ] <size_t N> ( const_tag<N> )
@@ -416,19 +416,19 @@ namespace ulua
 	struct type_traits<std::optional<T>>
 	{
 		template<typename Opt>
-		inline static int push( lua_State* L, Opt&& value )
+		ULUA_INLINE static int push( lua_State* L, Opt&& value )
 		{
 			if ( !value ) return type_traits<nil_t>::push( L, nil );
 			else          return type_traits<typename Opt::value_type>::push( L, std::forward<Opt>( value ).value() );
 		}
-		inline static bool check( lua_State* L, int& idx )
+		ULUA_INLINE static bool check( lua_State* L, int& idx )
 		{
 			int i = idx;
 			if ( type_traits<nil_t>::check( L, idx ) )
 				return true;
 			return type_traits<T>::check( L, ( idx = i ) );
 		}
-		inline static auto get( lua_State* L, int& idx )
+		ULUA_INLINE static auto get( lua_State* L, int& idx )
 		{
 			using R = std::optional<decltype( type_traits<T>::get( L, idx ) )>;
 			
@@ -443,7 +443,7 @@ namespace ulua
 	struct type_traits<std::tuple<Tx...>>
 	{
 		template<typename Tup>
-		inline static int push( lua_State* L, Tup&& value )
+		ULUA_INLINE static int push( lua_State* L, Tup&& value )
 		{
 			int res = 0;
 			detail::enum_tuple( std::forward<Tup>( value ), [ & ] <typename T> ( T&& field )
@@ -452,7 +452,7 @@ namespace ulua
 			} );
 			return res;
 		}
-		inline static bool check( lua_State* L, int& idx )
+		ULUA_INLINE static bool check( lua_State* L, int& idx )
 		{
 			bool valid = true;
 			detail::enum_indices<sizeof...( Tx )>( [ & ] <size_t N> ( const_tag<N> )
@@ -461,7 +461,7 @@ namespace ulua
 			} );
 			return valid;
 		}
-		inline static auto get( lua_State* L, int& idx )
+		ULUA_INLINE static auto get( lua_State* L, int& idx )
 		{
 			return detail::ordered_forward_as_tuple{ type_traits<Tx>::get( L, idx )... }.unwrap();
 		}
@@ -470,7 +470,7 @@ namespace ulua
 	struct type_traits<std::pair<T1, T2>>
 	{
 		template<typename Pair>
-		inline static int push( lua_State* L, Pair&& value )
+		ULUA_INLINE static int push( lua_State* L, Pair&& value )
 		{
 			int res = 0;
 			detail::enum_tuple( std::forward<Pair>( value ), [ & ] <typename T> ( T && field )
@@ -479,11 +479,11 @@ namespace ulua
 			} );
 			return res;
 		}
-		inline static bool check( lua_State* L, int& idx )
+		ULUA_INLINE static bool check( lua_State* L, int& idx )
 		{
 			return type_traits<T1>::check( L, idx ) && type_traits<T2>::check( L, idx );
 		}
-		inline static auto get( lua_State* L, int& idx )
+		ULUA_INLINE static auto get( lua_State* L, int& idx )
 		{
 			return detail::ordered_forward_as_pair{ type_traits<T1>::get( L, idx ), type_traits<T2>::get( L, idx ) }.unwrap();
 		}
@@ -491,16 +491,16 @@ namespace ulua
 	template<>
 	struct type_traits<std::nullopt_t>
 	{
-		inline static int push( lua_State* L, std::nullopt_t ) { return type_traits<nil_t>::push( L, nil ); }
-		inline static bool check( lua_State* L, int& idx ) { return type_traits<nil_t>::check( L, idx ); }
-		inline static std::nullopt_t get( lua_State*, int& idx ) { idx++; return std::nullopt; }
+		ULUA_INLINE static int push( lua_State* L, std::nullopt_t ) { return type_traits<nil_t>::push( L, nil ); }
+		ULUA_INLINE static bool check( lua_State* L, int& idx ) { return type_traits<nil_t>::check( L, idx ); }
+		ULUA_INLINE static std::nullopt_t get( lua_State*, int& idx ) { idx++; return std::nullopt; }
 	};
 	template<>
 	struct type_traits<std::nullptr_t>
 	{
-		inline static int push( lua_State* L, std::nullptr_t ) { return type_traits<nil_t>::push( L, nil ); }
-		inline static bool check( lua_State* L, int& idx ) { return type_traits<nil_t>::check( L, idx ); }
-		inline static std::nullptr_t get( lua_State*, int& idx ) { idx++; return nullptr; }
+		ULUA_INLINE static int push( lua_State* L, std::nullptr_t ) { return type_traits<nil_t>::push( L, nil ); }
+		ULUA_INLINE static bool check( lua_State* L, int& idx ) { return type_traits<nil_t>::check( L, idx ); }
+		ULUA_INLINE static std::nullptr_t get( lua_State*, int& idx ) { idx++; return nullptr; }
 	};
 
 	// FFI types.
@@ -509,7 +509,7 @@ namespace ulua
 	template<>
 	struct type_traits<cdata_value>
 	{
-		inline static int push( lua_State* L, cdata_value value )
+		ULUA_INLINE static int push( lua_State* L, cdata_value value )
 		{
 			if ( !value.pointer )
 				setnilV( L->top );
@@ -518,11 +518,11 @@ namespace ulua
 			incr_top( L );
 			return 1;
 		}
-		inline static bool check( lua_State* L, int& idx )
+		ULUA_INLINE static bool check( lua_State* L, int& idx )
 		{
 			return tviscdata( accel::ref( L, idx++ ) );
 		}
-		inline static cdata_value get( lua_State* L, int& idx )
+		ULUA_INLINE static cdata_value get( lua_State* L, int& idx )
 		{
 			auto* tv = accel::ref( L, idx++ );
 			if ( tviscdata( tv ) ) [[likely]]
