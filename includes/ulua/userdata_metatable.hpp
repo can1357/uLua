@@ -343,15 +343,16 @@ namespace ulua
 			//
 			stack_table metatable{ L, i, weak_t{} };
 			if ( !set_meta<meta::metatable>( metatable ) ) metatable[ meta::metatable ] = 0;
-			if ( !set_meta<meta::newindex>( metatable ) ) metatable[ meta::newindex ] = constant<&newindex>();
+			if ( !set_meta<meta::newindex>( metatable ) )  metatable[ meta::newindex ] = constant<&newindex>();
 			if ( !set_meta<meta::index>( metatable ) )     metatable[ meta::index ] = constant<&index>();
-			if ( !set_meta<meta::gc>( metatable ) )        metatable[ meta::gc ] = constant<&gc>();
 			if ( !set_meta<meta::tostring>( metatable ) )  metatable[ meta::tostring ] = constant<&tostring>();
 			if ( !set_meta<meta::eq>( metatable ) )        metatable[ meta::eq ] = constant<&eq>();
 			if ( !set_meta<meta::lt>( metatable ) )        metatable[ meta::lt ] = constant<&lt>();
 			if ( !set_meta<meta::le>( metatable ) )        metatable[ meta::le ] = constant<&le>();
 			if ( !set_meta<meta::name>( metatable ) )      metatable[ meta::name ] = userdata_name<T>();
-
+			if ( !set_meta<meta::gc>( metatable ) && !std::is_trivially_destructible_v<T> )        
+				metatable[ meta::gc ] = constant<&gc>();
+			
 			// If the object has a length/size getters or is iterable, define the function.
 			//
 			if constexpr ( has_meta<meta::len>() )
