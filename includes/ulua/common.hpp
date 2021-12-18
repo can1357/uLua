@@ -316,7 +316,7 @@ namespace ulua
 							std::conditional_t<delta == 2, uint16_t,
 							std::conditional_t<delta == 4, uint32_t,
 							std::conditional_t<delta == 8, uint64_t, void>>>>;
-					if constexpr ( std::is_void_v<T2> )
+					if constexpr ( !std::is_void_v<T2> )
 					{
 						T2 v2 = *( const T2* ) ( b + sizeof( T ) );
 						v2 ^= *( const T2* ) ( a + sizeof( T ) );
