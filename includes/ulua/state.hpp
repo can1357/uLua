@@ -193,5 +193,13 @@ namespace ulua
 		inline state() : state_view( luaL_newstate() ) {}
 		inline ~state() { lua_close( L ); }
 		using state_view::operator lua_State*;
+
+		// Resets the lua state.
+		//
+		inline void reset() 
+		{
+			lua_close( L );
+			L = luaL_newstate();
+		}
 	};
 };

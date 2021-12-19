@@ -269,8 +269,8 @@ namespace ulua
 		template<typename F>
 		concept Invocable = requires{ typename function_traits<F>::arguments; };
 
-	// Compiler specifics.
-	//
+		// Compiler specifics.
+		//
 #if defined(__GNUC__) || defined(__clang__)
 		#define ULUA_INLINE __attribute__((always_inline))
 		#define ULUA_COLD [[gnu::noinline, gnu::cold]]
