@@ -54,6 +54,10 @@ namespace ulua::stack
 	//
 	inline void set_top( lua_State* L, slot i ) { lua_settop( L, i ); }
 
+	// Compares two slots for equality.
+	//
+	inline bool equals( lua_State* L, slot a, slot b ) { return lua_equal( L, a, b ) == 1; }
+
 	// Pushes a given value on the stack.
 	//
 	template<typename T>
@@ -122,7 +126,7 @@ namespace ulua::stack
 	inline constexpr slot rel( lua_State* L, slot i ) 
 	{
 		if ( is_relative( i ) ) return i;
-		else                     return i - ( top( L ) + 1 );
+		else                    return i - ( top( L ) + 1 );
 	}
 
 	template<typename T>

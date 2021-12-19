@@ -20,7 +20,7 @@ namespace ulua
 	{
 		using type = decltype( V );
 		static constexpr type value = V;
-		inline constexpr operator type() { return value; };
+		inline constexpr operator type() const { return value; };
 	};
 	template<auto V> inline constexpr const_tag<V> constant() { return {}; }
 
