@@ -44,11 +44,9 @@ namespace ulua
 
 		// Value getter.
 		//
-		template<typename T> bool is( size_t i = 0 ) const { return std::is_same_v<T, nil_t> || ( i < size() && stack::check<T>( L, first + i ) ); }
+		template<typename T> bool is( size_t i = 0 ) const { return i < size() && stack::check<T>( L, first + i ); }
 		template<typename T> decltype( auto ) as( size_t i = 0 ) const 
 		{ 
-			if constexpr ( std::is_same_v<T, nil_t> )
-				return T{};
 			if ( i >= size() )
 				ulua::error( L, "expected %u return values, got %u", i + 1, size() );
 			return stack::get<T>( L, first + i );
