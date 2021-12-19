@@ -140,6 +140,14 @@ namespace ulua
 #endif
 		}
 	};
+	template<typename T> requires std::is_enum_v<T>
+	struct type_traits<T>
+	{
+		using U = std::underlying_type_t<T>;
+		ULUA_INLINE static int push( lua_State* L, T value ) { return type_traits<U>::push( L, ( U ) value ); }
+		ULUA_INLINE static bool check( lua_State* L, int& idx ) { return type_traits<U>::check( L, idx ); }
+		ULUA_INLINE static T get( lua_State* L, int& idx ) { return ( T ) type_traits<U>::get( L, idx ); }
+	};
 	template<typename T> requires std::is_floating_point_v<T>
 	struct type_traits<T>
 	{
