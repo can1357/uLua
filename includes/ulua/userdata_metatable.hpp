@@ -112,7 +112,7 @@ namespace ulua
 			return member_descriptor{
 				name,
 				[ ] ( auto* p ) -> decltype( auto ) { return p->*Field; },
-				[ ] ( auto* p, const stack_object& value ) { p->*Field = value; }
+				[ ] ( auto* p, const stack_object& value ) { p->*Field = (std::decay_t<decltype( p->*Field )>) value; }
 			};
 		}
 		else
@@ -374,6 +374,11 @@ namespace ulua
 			if ( !set_meta<meta::gc>( metatable ) && !std::is_trivially_destructible_v<T> )        
 				metatable[ meta::gc ] = constant<&gc>();
 			
+			// Propagate call property.
+			//
+			if constexpr ( has_meta<meta::call>() )
+				set_meta<meta::call>( metatable );
+
 			// If the object has a length/size getters or is iterable, define the function.
 			//
 			if constexpr ( has_meta<meta::len>() )
