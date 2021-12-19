@@ -133,4 +133,18 @@ namespace ulua
 	};
 	using table =       basic_table<registry_reference>;
 	using stack_table = basic_table<stack_reference>;
+
+	// Convenience helper to freeze tables.
+	//
+	template<typename Ref>
+	inline void freeze_table( const basic_table<Ref>& table ) 
+	{
+		table.push();
+		if ( !stack::push_metatable( table.state(), stack::top_t{} ) )
+			stack::create_table( table.state(), ulua::reserve_records{ 1 } );
+		stack::push( table.state(), [ ] ( lua_State* L ) { ulua::error( L, "cannot modify immutable table." ); } );
+		stack::set_field( table.state(), -2, ulua::meta::newindex );
+		stack::set_metatable( table.state(), -2 );
+		stack::pop_n( table.state(), 1 );
+	}
 };
