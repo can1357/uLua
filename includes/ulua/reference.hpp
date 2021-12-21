@@ -94,6 +94,7 @@ namespace ulua
 		inline constexpr registry_reference() {}
 		inline constexpr registry_reference( nullref_t ) {}
 		inline constexpr registry_reference( lua_State* L, reg_key key ) : L( L ), key( key ), valid_flag( true ) {}
+		inline constexpr registry_reference( lua_State* L, nil_t ) : L( L ), key{ LUA_REFNIL }, valid_flag( true ) {}
 		inline registry_reference( lua_State* L, stack::top_t ) : registry_reference( L, stack::pop_reg( L ) ) {}
 
 		inline constexpr registry_reference( registry_reference&& o ) noexcept { swap( o ); }

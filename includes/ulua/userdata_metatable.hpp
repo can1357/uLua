@@ -165,10 +165,12 @@ namespace ulua
 			}
 			else
 			{
-				if constexpr ( std::tuple_size_v<typename detail::function_traits<std::decay_t<G>>::arguments> != 1 )
+				if constexpr ( std::tuple_size_v<typename detail::function_traits<std::decay_t<G>>::arguments> == 2 )
 					return [ g = std::forward<G>( g ) ]( lua_State* L, auto* p ) -> decltype( auto ) { return g( L, *p ); };
-				else
+				else if constexpr ( std::tuple_size_v<typename detail::function_traits<std::decay_t<G>>::arguments> == 1 )
 					return [ g = std::forward<G>( g ) ]( lua_State*, auto* p ) -> decltype( auto ) { return g( *p ); };
+				else
+					return [ g = std::forward<G>( g ) ]( lua_State*, auto* ) -> decltype( auto ) { return g(); };
 			}
 		}
 		template<typename S>
@@ -183,10 +185,12 @@ namespace ulua
 			}
 			else
 			{
-				if constexpr ( std::tuple_size_v<typename detail::function_traits<std::decay_t<S>>::arguments> != 2 )
+				if constexpr ( std::tuple_size_v<typename detail::function_traits<std::decay_t<S>>::arguments> == 3 )
 					return [ s = std::forward<S>( s ) ]( lua_State* L, auto* p, const stack_object& value ) -> decltype( auto ) { return s( L, *p, value ); };
-				else
+				else if constexpr ( std::tuple_size_v<typename detail::function_traits<std::decay_t<S>>::arguments> == 2 )
 					return [ s = std::forward<S>( s ) ]( lua_State*, auto* p, const stack_object& value ) -> decltype( auto ) { return s( *p, value ); };
+				else
+					return [ s = std::forward<S>( s ) ]( lua_State*, auto*, const stack_object& value ) -> decltype( auto ) { return s( value ); };
 			}
 		}
 	};

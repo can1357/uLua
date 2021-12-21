@@ -189,7 +189,16 @@ namespace ulua
 		{
 			return detail::visit_index<sizeof...( Tx )>( arg.index(), [ & ] <size_t I> ( ulua::const_tag<I> )
 			{
-				return push_count{ stack::push( L, std::apply( get<I>(), std::move( std::get<I>( arg ) ) ) ) };
+				using R = decltype( std::apply( get<I>(), std::move( std::get<I>( arg ) ) ) );
+				if constexpr ( std::is_void_v<R> )
+				{
+					std::apply( get<I>(), std::move( std::get<I>( arg ) ) );
+					return push_count{ 0 };
+				}
+				else
+				{
+					return push_count{ stack::push( L, std::apply( get<I>(), std::move( std::get<I>( arg ) ) ) ) };
+				}
 			} );
 		}
 	};

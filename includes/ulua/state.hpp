@@ -190,16 +190,34 @@ namespace ulua
 	};
 	struct state : state_view
 	{
-		inline state() : state_view( luaL_newstate() ) {}
-		inline ~state() { lua_close( L ); }
 		using state_view::operator lua_State*;
+
+		// Default allocating construction.
+		//
+		inline state() : state_view( luaL_newstate() ) {}
+
+		// Explicit null construction.
+		//
+		inline state( nil_t ) : state_view( nullptr ) {}
+
+		// Closes the lua state.
+		//
+		inline void close()
+		{
+			if ( auto* p = std::exchange( L, nullptr ) )
+				lua_close( p );
+		}
 
 		// Resets the lua state.
 		//
 		inline void reset() 
 		{
-			lua_close( L );
+			close();
 			L = luaL_newstate();
 		}
+
+		// Close on destruction.
+		//
+		inline ~state() { close(); }
 	};
 };
