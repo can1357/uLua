@@ -79,8 +79,8 @@ namespace ulua
 		template<typename T>
 		inline void get( lua_State* L, stack::slot key_slot, T* value ) const
 		{
-			if constexpr ( detail::Callable<G, lua_State*, T*> )
-				stack::push( L, getter( L, value ) );
+			if constexpr ( detail::Callable<G, T*> )
+				stack::push( L, getter( value ) );
 			else
 				error( L, "attempt to get write-only field '%.*s'", name.length(), name.data() );
 		}
@@ -88,8 +88,8 @@ namespace ulua
 		template<typename T>
 		inline void set( lua_State* L, stack::slot key_slot, T* value, const stack_object& ref ) const
 		{
-			if constexpr ( detail::Callable<S, lua_State*, T*, const stack_object&> )
-				setter( L, value, ref );
+			if constexpr ( detail::Callable<S, T*, const stack_object&> )
+				setter( value, ref );
 			else
 				error( L, "attempt to set read-only field '%.*s'", name.length(), name.data() );
 		}
@@ -103,7 +103,7 @@ namespace ulua
 		{
 			return member_descriptor{
 				name,
-				[ ] ( lua_State*, auto* ) { return constant<Field>(); },
+				[ ] ( auto* ) { return constant<Field>(); },
 				std::nullopt
 			};
 		}
@@ -111,8 +111,8 @@ namespace ulua
 		{
 			return member_descriptor{
 				name,
-				[ ] ( lua_State*, auto* p ) -> decltype( auto ) { return p->*Field; },
-				[ ] ( lua_State*, auto* p, const stack_object& value ) { p->*Field = (std::decay_t<decltype( p->*Field )>) value; }
+				[ ] ( auto* p ) -> decltype( auto ) { return p->*Field; },
+				[ ] ( auto* p, const stack_object& value ) { p->*Field = (std::decay_t<decltype( p->*Field )>) value; }
 			};
 		}
 		else
@@ -128,7 +128,7 @@ namespace ulua
 		{
 			return member_descriptor{
 				name,
-				[ ] ( lua_State*, auto* ) { return V{}; },
+				[ ] ( auto* ) { return V{}; },
 				std::nullopt
 			};
 		}
@@ -136,7 +136,7 @@ namespace ulua
 		{
 			return member_descriptor{
 				name,
-				[ v = std::forward<T>( value ) ] ( lua_State*, auto* ) { return v; },
+				[ v = std::forward<T>( value ) ] ( auto* ) { return v; },
 				std::nullopt
 			};
 		}
@@ -146,7 +146,7 @@ namespace ulua
 	{
 		return member_descriptor{
 			name,
-			[ ] ( lua_State*, auto* p ) -> decltype( auto ) { return p->*Field; },
+			[ ] ( auto* p ) -> decltype( auto ) { return p->*Field; },
 			std::nullopt
 		};
 	}
@@ -157,41 +157,17 @@ namespace ulua
 		inline constexpr auto make_getter( G&& g )
 		{
 			if constexpr ( std::is_member_function_pointer_v<std::decay_t<G>> )
-			{
-				if constexpr ( std::tuple_size_v<typename detail::function_traits<std::decay_t<G>>::arguments> != 0 )
-					return [ g = std::forward<G>( g ) ]( lua_State* L, auto* p ) -> decltype( auto ) { return ( p->*g )( L ); };
-				else
-					return [ g = std::forward<G>( g ) ]( lua_State*, auto* p ) -> decltype( auto ) { return ( p->*g )(); };
-			}
+				return [ g = std::forward<G>( g ) ]( auto* p ) -> decltype( auto ) { return ( p->*g )(); };
 			else
-			{
-				if constexpr ( std::tuple_size_v<typename detail::function_traits<std::decay_t<G>>::arguments> == 2 )
-					return [ g = std::forward<G>( g ) ]( lua_State* L, auto* p ) -> decltype( auto ) { return g( L, *p ); };
-				else if constexpr ( std::tuple_size_v<typename detail::function_traits<std::decay_t<G>>::arguments> == 1 )
-					return [ g = std::forward<G>( g ) ]( lua_State*, auto* p ) -> decltype( auto ) { return g( *p ); };
-				else
-					return [ g = std::forward<G>( g ) ]( lua_State*, auto* ) -> decltype( auto ) { return g(); };
-			}
+				return [ g = std::forward<G>( g ) ]( auto* p ) -> decltype( auto ) { return g( *p ); };
 		}
 		template<typename S>
 		inline constexpr auto make_setter( S&& s )
 		{
 			if constexpr ( std::is_member_function_pointer_v<std::decay_t<S>> )
-			{
-				if constexpr ( std::tuple_size_v<typename detail::function_traits<std::decay_t<S>>::arguments> != 1 )
-					return [ s = std::forward<S>( s ) ]( lua_State* L, auto* p, const stack_object& value ) -> decltype( auto ) { return ( p->*s )( L, value ); };
-				else
-					return [ s = std::forward<S>( s ) ]( lua_State*, auto* p, const stack_object& value ) -> decltype( auto ) { return ( p->*s )( value ); };
-			}
+				return [ s = std::forward<S>( s ) ]( auto* p, const stack_object& value ) -> decltype( auto ) { return ( p->*s )( value ); };
 			else
-			{
-				if constexpr ( std::tuple_size_v<typename detail::function_traits<std::decay_t<S>>::arguments> == 3 )
-					return [ s = std::forward<S>( s ) ]( lua_State* L, auto* p, const stack_object& value ) -> decltype( auto ) { return s( L, *p, value ); };
-				else if constexpr ( std::tuple_size_v<typename detail::function_traits<std::decay_t<S>>::arguments> == 2 )
-					return [ s = std::forward<S>( s ) ]( lua_State*, auto* p, const stack_object& value ) -> decltype( auto ) { return s( *p, value ); };
-				else
-					return [ s = std::forward<S>( s ) ]( lua_State*, auto*, const stack_object& value ) -> decltype( auto ) { return s( value ); };
-			}
+				return [ s = std::forward<S>( s ) ]( auto* p, const stack_object& value ) -> decltype( auto ) { return s( *p, value ); };
 		}
 	};
 
