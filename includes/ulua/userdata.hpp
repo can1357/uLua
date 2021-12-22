@@ -174,10 +174,12 @@ namespace ulua
 		{
 			int i = idx;
 			auto wrapper = ( userdata_wrapper<T>* ) type_traits<userdata_value>::get( L, idx ).pointer;
-			if ( !wrapper || !wrapper->check_type() )
-				type_error( L, i, userdata_name<T>().data() );
-			if ( !wrapper->check_qual() )
-				arg_error( L, i, "expected mutable '%s', got 'const %s'", userdata_name<T>().data(), userdata_name<T>().data() );
+
+			constexpr auto udname = userdata_name<std::remove_const_t<T>>().data();
+			if ( !wrapper || !wrapper->check_type() ) [[unlikely]]
+				type_error( L, i, udname );
+			if ( !wrapper->check_qual() ) [[unlikely]]
+				arg_error( L, i, "expected mutable '%s', got 'const %s'", udname, udname );
 			return *wrapper;
 		}
 	};
