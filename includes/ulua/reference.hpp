@@ -176,7 +176,7 @@ namespace ulua
 	struct type_traits<reg_key> : popable_tag_t
 	{
 		inline static int push( lua_State* L, reg_key key ) { stack::push_reg( L, key ); return 1; }
-		inline static bool check( lua_State* L, int& idx ) { idx++; return true; }
+		inline static bool check( lua_State*, int& idx ) { idx++; return true; }
 		inline static reg_key get( lua_State* L, int& idx )
 		{
 			stack::copy( L, idx++ );
