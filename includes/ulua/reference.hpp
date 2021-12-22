@@ -172,6 +172,18 @@ namespace ulua
 		}
 		inline static R pop( lua_State* L ) { return R{ L, stack::top_t{} }; }
 	};
+	template<>
+	struct type_traits<reg_key> : popable_tag_t
+	{
+		inline static int push( lua_State* L, reg_key key ) { stack::push_reg( L, key ); return 1; }
+		inline static bool check( lua_State* L, int& idx ) { idx++; return true; }
+		inline static reg_key get( lua_State* L, int& idx )
+		{
+			stack::copy( L, idx++ );
+			return stack::pop_reg( L );
+		}
+		inline static reg_key pop( lua_State* L ) { return stack::pop_reg( L ); }
+	};
 
 	// Compares two references for equality.
 	//

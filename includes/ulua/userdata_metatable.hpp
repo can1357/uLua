@@ -325,10 +325,10 @@ namespace ulua
 
 		// String conversation of the object.
 		//
-		static std::string tostring( const userdata_wrapper<const T>& u )
+		static auto tostring( const userdata_wrapper<const T>& u )
 		{
 			if constexpr ( detail::HasToString<T> )
-				return std::string{ u.get()->to_string() };
+				return u.get()->to_string();
 			else
 				return std::string{ userdata_name<T>() };
 		}
