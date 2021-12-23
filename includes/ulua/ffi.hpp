@@ -1,4 +1,5 @@
 #pragma once
+#include <atomic>
 #include "stack.hpp"
 #include "lazy.hpp"
 #include "table.hpp"
@@ -39,7 +40,6 @@ namespace ulua::ffi
 		return state[ "ffi" ][ "metatype" ]( type_name, tbl );
 	}
 };
-
 
 namespace ulua
 {
@@ -126,13 +126,39 @@ namespace ulua
 			return *wr;
 		}
 	};
+
+	template<typename T>
+	struct ctype_id_cache
+	{
+		inline static std::atomic<uint64_t> value = {};
+
+		inline static void write( lua_State* L, CTypeID in )
+		{
+			uint64_t v = in;
+			v |= ( uint64_t( L ) >> 4 ) << 32;
+			value.exchange( v );
+		}
+		inline static bool read( lua_State* L, CTypeID& out )
+		{
+			uint64_t v = value.load( std::memory_order::relaxed );
+			if ( ( v >> 32 ) == uint32_t( uint64_t( L ) >> 4 ) )
+			{
+				out = uint32_t( v );
+				return true;
+			}
+			return false;
+		}
+	};
+	template<typename T>
+	struct ctype_id_cache<const T> : ctype_id_cache<T> {};
+
 	template<typename T> requires UserCType<std::remove_const_t<T>>
 	struct user_type_traits<T> : emplacable_tag_t
 	{
 		using meta = userdata_metatable<std::remove_const_t<T>>;
+		using cache = ctype_id_cache<T>;
 
-		template<typename... Tx>
-		ULUA_INLINE static int emplace( lua_State* L, Tx&&... args )
+		ULUA_COLD static CTypeID fetch_type_id_slow( lua_State* L )
 		{
 			CTypeID type_id;
 			if ( stack::create_metatable( L, userdata_mt_name<std::remove_const_t<T>>().data() ) ) [[unlikely]]
@@ -156,6 +182,19 @@ namespace ulua
 				ulua::stack_table table{ L, stack::top_t{} };
 				type_id = table[ "__cid" ];
 			}
+			// Update cache.
+			cache::write( L, type_id );
+			return type_id;
+		}
+
+		template<typename... Tx>
+		ULUA_INLINE static int emplace( lua_State* L, Tx&&... args )
+		{
+			// Get the C type ID.
+			//
+			CTypeID type_id;
+			if ( !cache::read( L, type_id ) ) [[unlikely]]
+				type_id = fetch_type_id_slow( L );
 
 			// Emplace the C type.
 			//
@@ -181,5 +220,4 @@ namespace ulua
 		}
 	};
 };
-
 #endif

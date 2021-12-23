@@ -39,7 +39,7 @@ namespace ulua
 		
 		inline bool is_error() const { return retval != 0; }
 		inline bool is_success() const { return retval == 0; }
-		inline void assert() const { if ( is_error() ) error( Ref::state(), error() ); }
+		inline void assert() const { if ( is_error() ) ulua::error( Ref::state(), error() ); }
 		inline explicit operator bool() const { return is_success(); }
 		const char* error() const { Ref::push(); return stack::pop<const char*>( Ref::state() ); }
 
