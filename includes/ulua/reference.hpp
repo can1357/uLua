@@ -187,32 +187,32 @@ namespace ulua
 
 	// Compares two references for equality.
 	//
-	inline bool equals( lua_State* L, const stack_reference& r1, const stack_reference& r2 )
+	inline bool equals( const stack_reference& r1, const stack_reference& r2 )
 	{
-		return stack::equals( L, r1.slot(), r2.slot() );
+		return stack::equals( r1.state(), r1.slot(), r2.slot());
 	}
-	inline bool equals( lua_State* L, const stack_reference& r1, const registry_reference& r2 )
+	inline bool equals( const stack_reference& r1, const registry_reference& r2 )
 	{
-		auto s1 = stack::abs( L, r1.slot() );
+		auto s1 = stack::abs( r1.state(), r1.slot() );
 		r2.push();
-		bool result = stack::equals( L, s1, stack::top_t{} );
-		stack::pop_n( L, 1 );
+		bool result = stack::equals( r1.state(), s1, stack::top_t{} );
+		stack::pop_n( r1.state(), 1 );
 		return result;
 	}
-	inline bool equals( lua_State* L, const registry_reference& r1, const stack_reference& r2 )
+	inline bool equals( const registry_reference& r1, const stack_reference& r2 )
 	{
-		auto s2 = stack::abs( L, r2.slot() );
+		auto s2 = stack::abs( r1.state(), r2.slot() );
 		r1.push();
-		bool result = stack::equals( L, stack::top_t{}, s2 );
-		stack::pop_n( L, 1 );
+		bool result = stack::equals( r1.state(), stack::top_t{}, s2 );
+		stack::pop_n( r1.state(), 1 );
 		return result;
 	}
-	inline bool equals( lua_State* L, const registry_reference& r1, const registry_reference& r2 )
+	inline bool equals( const registry_reference& r1, const registry_reference& r2 )
 	{
 		r2.push();
 		r1.push();
-		bool result = stack::equals( L, -1, -2 );
-		stack::pop_n( L, 2 );
+		bool result = stack::equals( r1.state(), -1, -2 );
+		stack::pop_n( r1.state(), 2 );
 		return result;
 	}
 };
