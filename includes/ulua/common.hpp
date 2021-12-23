@@ -4,6 +4,7 @@
 #include <algorithm>
 #include <utility>
 #include <variant>
+#include <array>
 
 #ifndef __has_builtin
 	#define __has_builtin(...) 0
