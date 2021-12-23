@@ -232,15 +232,22 @@ namespace ulua::stack
 		}
 		else if constexpr ( Raw )
 		{
-			push( L, key );
+			if constexpr ( std::is_integral_v<T> )
+			{
+				lua_rawseti( L, i, ( int ) key );
+			}
+			else
+			{
+				push( L, key );
 #if ULUA_ACCEL
-			accel::xchg( L, -1, -2 );
-			lua_rawset( L, i );
+				accel::xchg( L, -1, -2 );
+				lua_rawset( L, i );
 #else
-			copy( L, -2 );
-			lua_rawset( L, i );
-			pop_n( L, 1 );
+				copy( L, -2 );
+				lua_rawset( L, i );
+				pop_n( L, 1 );
 #endif
+			}
 		}
 		else
 		{
