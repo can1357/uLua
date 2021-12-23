@@ -207,7 +207,7 @@ namespace ulua
 		{
 			if ( size_t i = name.size(); i <= max_field_length )
 			{
-				return detail::visit_index<max_field_length + 1>( i, [ & ] <size_t N> ( const_tag<N> ) FORCE_INLINE
+				return detail::visit_index<max_field_length + 1>( i, [ & ] <size_t N> ( const_tag<N> ) ULUA_INLINE
 				{
 					return detail::find_tuple_if( userdata_fields<T>, [ & ] ( const auto& field )
 					{
