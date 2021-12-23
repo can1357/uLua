@@ -482,10 +482,8 @@ namespace ulua
 		ULUA_INLINE static int push( lua_State* L, Pair&& value )
 		{
 			int res = 0;
-			detail::enum_tuple( std::forward<Pair>( value ), [ & ] <typename T> ( T && field )
-			{
-				res += type_traits<T>::push( L, std::forward<T>( field ) );
-			} );
+			res += type_traits<T1>::push( L, std::get<0>( std::forward<Pair>( value ) ) );
+			res += type_traits<T2>::push( L, std::get<1>( std::forward<Pair>( value ) ) );
 			return res;
 		}
 		ULUA_INLINE static bool check( lua_State* L, int& idx )
