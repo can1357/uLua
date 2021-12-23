@@ -77,9 +77,9 @@ namespace ulua
 		inline constexpr member_descriptor( std::string_view name, G&& getter, S&& setter ) : getter( std::forward<G>( getter ) ), setter( std::forward<S>( setter ) ), name( name ) {}
 
 		template<typename T>
-		inline void get( lua_State* L, stack::slot key_slot, T* value ) const
+		inline void get( lua_State* L, stack::slot key_slot, const T* value ) const
 		{
-			if constexpr ( detail::Callable<G, T*> )
+			if constexpr ( !std::is_same_v<std::decay_t<G>, std::nullopt_t> )
 				stack::push( L, getter( value ) );
 			else
 				error( L, "attempt to get write-only field '%.*s'", name.length(), name.data() );
@@ -88,7 +88,7 @@ namespace ulua
 		template<typename T>
 		inline void set( lua_State* L, stack::slot key_slot, T* value, const stack_object& ref ) const
 		{
-			if constexpr ( detail::Callable<S, T*, const stack_object&> )
+			if constexpr ( !std::is_same_v<std::decay_t<S>, std::nullopt_t> )
 				setter( value, ref );
 			else
 				error( L, "attempt to set read-only field '%.*s'", name.length(), name.data() );
@@ -192,9 +192,10 @@ namespace ulua
 		static constexpr size_t max_field_length = [ ] ()
 		{
 			size_t n = 0;
-			detail::enum_tuple( userdata_fields<T>, [ & ] ( const auto& field )
+			detail::find_tuple_if( userdata_fields<T>, [ & ] ( const auto& field )
 			{
 				n = std::max<size_t>( field.name.size(), n );
+				return false;
 			} );
 			return n;
 		}();
@@ -208,19 +209,13 @@ namespace ulua
 			{
 				return detail::visit_index<max_field_length + 1>( i, [ & ] <size_t N> ( const_tag<N> ) FORCE_INLINE
 				{
-					bool found = false;
-					detail::enum_tuple( userdata_fields<T>, [ & ] ( const auto& field )
+					return detail::find_tuple_if( userdata_fields<T>, [ & ] ( const auto& field )
 					{
-						if ( field.name.size() == N )
-						{
-							if ( !found && detail::const_eq<N>( field.name.data(), name.data() ) )
-							{
-								fn( field );
-								found = true;
-							}
-						}
+						if ( field.name.size() != N || !detail::const_eq<N>( field.name.data(), name.data() ) )
+							return false;
+						fn( field );
+						return true;
 					} );
-					return found;
 				} );
 			}
 			return false;
@@ -231,16 +226,13 @@ namespace ulua
 		template<meta M, typename F>
 		static constexpr bool find_meta( F&& fn )
 		{
-			bool found = false;
-			detail::enum_tuple( userdata_meta<T>, [ & ] ( const auto& value )
+			return detail::find_tuple_if( userdata_meta<T>, [ & ] ( const auto& value )
 			{
-				if ( !found && value.field == M )
-				{
-					fn( value.value );
-					found = true;
-				}
+				if ( value.field != M )
+					return false;
+				fn( value.value );
+				return true;
 			} );
-			return found;
 		}
 		template<meta M> static constexpr bool has_meta() { return find_meta<M>( [ & ] ( const auto& ) {} ); }
 		template<meta M> static inline bool set_meta( stack_table& tbl ) { return find_meta<M>( [ & ] ( const auto& value ) { tbl[ M ] = value; } ); }
@@ -249,7 +241,7 @@ namespace ulua
 		//
 		static push_count index( lua_State* L, const userdata_wrapper<const T>& u, const stack_object& k )
 		{
-			auto field_indexer = [ & ] ( auto& field ) { field.get( L, k.slot(), u.get() ); };
+			auto field_indexer = [ & ] ( auto& field ) { field.template get<T>( L, k.slot(), u.get() ); };
 			if ( k.is<std::string_view>() && find_field( k.as<std::string_view>(), field_indexer ) )
 				return { 1 };
 
@@ -280,7 +272,7 @@ namespace ulua
 		}
 		static void newindex( lua_State* L, const userdata_wrapper<T>& u, const stack_object& k, const stack_object& v )
 		{
-			auto field_indexer = [ & ] ( auto& field ) { field.set( L, k.slot(), u.get(), v ); };
+			auto field_indexer = [ & ] ( auto& field ) { field.template set<T>( L, k.slot(), u.get(), v ); };
 			if ( k.is<std::string_view>() && find_field( k.as<std::string_view>(), field_indexer ) )
 				return;
 

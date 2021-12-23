@@ -153,15 +153,13 @@ namespace ulua
 
 		// Tuple enumeration.
 		//
-		template<typename Tuple, typename F> requires is_tuple_v<Tuple>
-		static constexpr void enum_tuple( Tuple&& tuple, F&& fn )
+		template<typename Tuple, typename F>
+		static constexpr bool find_tuple_if( Tuple&& tuple, F&& fn )
 		{
-			enum_indices<std::tuple_size_v<Tuple>>( [ & ] <size_t N> ( const_tag<N> ) { fn( std::move( std::get<N>( tuple ) ) ); } );
-		}
-		template<typename Tuple, typename F> requires is_tuple_v<std::remove_const_t<Tuple>>
-		static constexpr void enum_tuple( Tuple& tuple, F&& fn )
-		{
-			enum_indices<std::tuple_size_v<std::remove_const_t<Tuple>>>( [ & ] <size_t N> ( const_tag<N> ) { fn( std::get<N>( tuple ) ); } );
+			return std::apply( [ & ] ( const auto&... fields ) -> bool
+			{
+				return ( fn( fields ) || ... );
+			}, std::forward<Tuple>( tuple ) );
 		}
 
 		// Parameter pack helper.

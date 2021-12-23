@@ -454,9 +454,10 @@ namespace ulua
 		ULUA_INLINE static int push( lua_State* L, Tup&& value )
 		{
 			int res = 0;
-			detail::enum_tuple( std::forward<Tup>( value ), [ & ] <typename T> ( T&& field )
+			detail::find_tuple_if( std::forward<Tup>( value ), [ & ] <typename T> ( T&& field )
 			{
 				res += type_traits<T>::push( L, std::forward<T>( field ) );
+				return false;
 			} );
 			return res;
 		}
