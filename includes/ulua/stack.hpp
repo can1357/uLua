@@ -58,6 +58,10 @@ namespace ulua::stack
 	//
 	inline bool equals( lua_State* L, slot a, slot b ) { return lua_equal( L, a, b ) == 1; }
 
+	// Gets the object length.
+	//
+	inline size_t length( lua_State* L, slot a ) { return lua_objlen( L, a ); }
+
 	// Pushes a given value on the stack.
 	//
 	template<typename T>

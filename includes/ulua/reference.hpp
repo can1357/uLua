@@ -215,4 +215,18 @@ namespace ulua
 		stack::pop_n( r1.state(), 2 );
 		return result;
 	}
+
+	// Applies the lenght metamethod on the given reference.
+	//
+	inline size_t length( const stack_reference& r1 )
+	{
+		return stack::length( r1.state(), r1.slot() );
+	}
+	inline size_t length( const registry_reference& r1 )
+	{
+		r1.push();
+		size_t result = stack::length( r1.state(), stack::top_t{} );
+		stack::pop_n( r1.state(), 1 );
+		return result;
+	}
 };
