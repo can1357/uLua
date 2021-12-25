@@ -212,8 +212,8 @@ namespace ulua
 		//
 		inline void reset() 
 		{
-			close();
-			L = luaL_newstate();
+			if ( auto* p = std::exchange( L, luaL_newstate() ) )
+				lua_close( p );
 		}
 
 		// Close on destruction.
