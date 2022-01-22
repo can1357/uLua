@@ -161,14 +161,14 @@ namespace ulua::stack
 
 	// Pops the top of the stack into registry and returns the registry key.
 	//
-	reg_key pop_reg( lua_State* L )
+	inline reg_key pop_reg( lua_State* L )
 	{
 		return reg_key{ luaL_ref( L, LUA_REGISTRYINDEX ) };
 	}
 
 	// Pushes a value from registry into stack.
 	//
-	void push_reg( lua_State* L, reg_key key )
+	inline void push_reg( lua_State* L, reg_key key )
 	{
 		lua_rawgeti( L, LUA_REGISTRYINDEX, key.key );
 	}
