@@ -1,4 +1,5 @@
 #pragma once
+#include <string>
 #include "common.hpp"
 #include "lua_types.hpp"
 

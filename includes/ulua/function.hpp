@@ -82,7 +82,7 @@ namespace ulua
 				return [ & ] <template<typename...> typename Tup, typename... Tx> ( std::type_identity<Tup<Tx...>> )
 				{
 					if ( size() < sizeof...( Tx ) )
-						error( L, "expected %u return values, got %u", sizeof...( Tx ), size() );
+						ulua::error( L, "expected %u return values, got %u", sizeof...( Tx ), size() );
 					size_t it = 0;
 					return Tup<Tx...>{ as<Tx>( it++ )... };
 				}( std::type_identity<T>{} );
