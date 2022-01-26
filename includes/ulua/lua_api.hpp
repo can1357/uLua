@@ -1,6 +1,15 @@
 #pragma once
 #include <lua.hpp>
 
+#ifndef __has_include
+	#define __has_include(...) 0
+#endif
+#if __has_include(<luajit.h>)
+extern "C" {
+	#include <luajit.h>
+};
+#endif
+
 #if defined(LUAJIT_VERSION)
 	#define ULUA_JIT 1
 	extern "C" {

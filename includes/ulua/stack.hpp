@@ -186,6 +186,13 @@ namespace ulua::stack
 		return true;
 	}
 	inline bool push_caller( lua_State* L ) { return push_callstack( L, 1 ); }
+
+	// Moves N values from one thread to another.
+	//
+	inline void xmove( lua_State* from, lua_State* to, int count )
+	{
+		lua_xmove( from, to, count );
+	}
 	
 	// Fetches a specific key from the table and pushes it.
 	//
@@ -356,9 +363,9 @@ namespace ulua::stack
 	// Pushes a type as userdata.
 	//
 	template<typename T, typename... Tx>
-	inline void emplace_userdata( lua_State* L, Tx&&... args )
+	inline T& emplace_userdata( lua_State* L, Tx&&... args )
 	{
-		new ( lua_newuserdata( L, sizeof( T ) ) ) T( std::forward<Tx>( args )... );
+		return *new ( lua_newuserdata( L, sizeof( T ) ) ) T( std::forward<Tx>( args )... );
 	}
 
 	// Dumps the stack on console.

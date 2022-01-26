@@ -74,15 +74,6 @@ namespace ulua
 		operator void* () const { return pointer; }
 	};
 
-	struct cdata_value
-	{
-		void*    pointer;
-		CTypeID  type;
-
-		template<typename T>
-		inline T& as() const { return *( T* ) pointer; }
-	};
-
 	// Type traits declaration.
 	//
 	template<typename T> struct type_traits;
@@ -513,6 +504,15 @@ namespace ulua
 	// FFI types.
 	//
 #if ULUA_JIT
+	struct cdata_value
+	{
+		void* pointer;
+		CTypeID  type;
+
+		template<typename T>
+		inline T& as() const { return *( T* ) pointer; }
+	};
+
 	template<>
 	struct type_traits<cdata_value>
 	{

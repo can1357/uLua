@@ -17,6 +17,7 @@
   <ItemGroup>
     <ClInclude Include="$(MSBuildThisFileDirectory)includes\ulua.hpp" />
     <ClInclude Include="$(MSBuildThisFileDirectory)includes\ulua\closure.hpp" />
+    <ClInclude Include="$(MSBuildThisFileDirectory)includes\ulua\coroutine.hpp" />
     <ClInclude Include="$(MSBuildThisFileDirectory)includes\ulua\environment.hpp" />
     <ClInclude Include="$(MSBuildThisFileDirectory)includes\ulua\ffi.hpp" />
     <ClInclude Include="$(MSBuildThisFileDirectory)includes\ulua\function.hpp" />

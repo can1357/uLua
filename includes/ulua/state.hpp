@@ -77,17 +77,17 @@ namespace ulua
 
 		// Null state view.
 		//
-		inline state_view() : L( nullptr ) {}
+		constexpr inline state_view() : L( nullptr ) {}
 		
 		// Created from lua_State directly or indirecly by any other object that has a state.
 		//
-		inline state_view( lua_State* state ) : L( state ) {}
-		template<detail::HasState T> inline state_view( T&& ref ) : state_view( ref.state() ) {}
+		constexpr inline state_view( lua_State* state ) : L( state ) {}
+		template<detail::HasState T> constexpr inline state_view( T&& ref ) : state_view( ref.state() ) {}
 		
 		// Decay to state and bool.
 		//
-		operator lua_State*() const { return L; }
-		explicit operator bool() const { return L != nullptr; }
+		constexpr operator lua_State*() const { return L; }
+		constexpr explicit operator bool() const { return L != nullptr; }
 
 		// Sets the panic function.
 		//

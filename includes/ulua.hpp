@@ -11,3 +11,4 @@
 #include "ulua/function.hpp"
 #include "ulua/state.hpp"
 #include "ulua/ffi.hpp"
+#include "ulua/coroutine.hpp"
