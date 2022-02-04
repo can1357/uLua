@@ -19,11 +19,13 @@ namespace ulua
 		static coroutine create( const Ref& f )
 		{
 			lua_State* L = f.state();
-			f.push();
-			coroutine result{ lua_newthread( L ) };
+			lua_State* cl = lua_newthread( L );
 			stack::pop_n( L, 1 );
-			stack::xmove( L, result, 1 );
-			return result;
+
+			f.push();
+			stack::xmove( L, cl, 1 );
+
+			return { cl };
 		}
 
 		// Resumes the coroutine with all the given arguments, equivalent to coroutine.resume.
@@ -99,7 +101,7 @@ namespace ulua
 			if ( auto f = lua_tothread( L, idx++ ) ) [[likely]]
 				return { f };
 #endif
-			type_error( L, i, "Coroutine" );
+			type_error( L, i, "coroutine" );
 		}
 	};
 };

@@ -145,10 +145,9 @@ namespace ulua
 		ULUA_INLINE static int push( lua_State* L, T value )
 		{
 #if ULUA_ACCEL
-			if ( value != value )
+			setnumV( L->top, value );
+			if ( value != value ) [[unlikely]]
 				setnanV( L->top );
-			else
-				setnumV( L->top, value );
 			incr_top( L );
 #else
 			lua_pushnumber( L, value );
