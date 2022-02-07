@@ -195,6 +195,7 @@ namespace ulua
 		// Default allocating construction.
 		//
 		inline state() : state_view( luaL_newstate() ) {}
+		inline state( lua_Alloc allocf, void* allocd ) : state_view( lua_newstate( allocf, allocd ) ) {}
 
 		// Explicit null construction.
 		//
@@ -213,6 +214,11 @@ namespace ulua
 		inline void reset() 
 		{
 			if ( auto* p = std::exchange( L, luaL_newstate() ) )
+				lua_close( p );
+		}
+		inline void reset( lua_Alloc allocf, void* allocd )
+		{
+			if ( auto* p = std::exchange( L, lua_newstate( allocf, allocd ) ) )
 				lua_close( p );
 		}
 
