@@ -71,14 +71,6 @@ namespace ulua::stack
 		return type_traits<T>::push( L, std::forward<T>( value ) );
 	}
 
-	// Pushes a closure value popping N values into its upvalues.
-	//
-	inline int push_closure( lua_State* L, cfunction_t fn, slot upvalue_count = 0 )
-	{
-		lua_pushcclosure( L, fn, upvalue_count );
-		return 1;
-	}
-
 	// Push by emplace.
 	//
 	template<typename T, typename... Tx>
@@ -92,7 +84,7 @@ namespace ulua::stack
 
 	// Pops a given number of items from the top of the stack.
 	//
-	inline void pop_n( lua_State* L, slot i ) 
+	inline void pop_n( lua_State* L, size_t i ) 
 	{
 #if ULUA_ACCEL
 		accel::pop( L, i );
@@ -338,6 +330,29 @@ namespace ulua::stack
 	inline value_type type( lua_State* L, slot i ) 
 	{
 		return ( value_type ) lua_type( L, i );
+	}
+
+	// Pushes a closure value popping N values into its upvalues.
+	//
+	inline int push_closure( lua_State* L, cfunction_t fn, slot upvalue_count = 0 )
+	{
+		if ( !upvalue_count )
+		{
+			lua_pushlightuserdata( L, fn );
+			lua_rawget( L, LUA_REGISTRYINDEX );
+			if ( check<cfunction_t>( L, top_t{} ) ) [[likely]]
+				return 1;
+			pop_n( L, 1 );
+
+			lua_pushcclosure( L, fn, 0 );
+			lua_pushlightuserdata( L, fn );
+			copy( L, -2 );
+			lua_rawset( L, LUA_REGISTRYINDEX );
+			return 1;
+		}
+
+		lua_pushcclosure( L, fn, upvalue_count );
+		return 1;
 	}
 
 	// String conversion.
