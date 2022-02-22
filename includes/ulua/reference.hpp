@@ -216,7 +216,7 @@ namespace ulua
 		return result;
 	}
 
-	// Applies the lenght metamethod on the given reference.
+	// Applies the length metamethod on the given reference.
 	//
 	inline size_t length( const stack_reference& r1 )
 	{
