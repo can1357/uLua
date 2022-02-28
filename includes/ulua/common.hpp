@@ -10,7 +10,17 @@
 	#define __has_builtin(...) 0
 #endif
 
-#define ULUA_DEBUG 1 // TODO: Remove
+// Determine build mode.
+//
+#ifndef ULUA_DEBUG
+	#if NDEBUG
+		#define ULUA_DEBUG 0
+	#elif _DEBUG               
+		#define ULUA_DEBUG 1
+	#else
+		#define ULUA_DEBUG 0
+	#endif
+#endif
 
 namespace ulua
 {
@@ -24,21 +34,6 @@ namespace ulua
 		inline constexpr operator type() const { return value; };
 	};
 	template<auto V> inline constexpr const_tag<V> constant() { return {}; }
-
-	// Build mode check.
-	//
-	static constexpr bool is_debug()
-	{
-#if ULUA_DEBUG
-		return true;
-#elif NDEBUG
-		return false;
-#elif _DEBUG               
-		return true;
-#else
-		return false;
-#endif
-	}
 
 	namespace detail
 	{

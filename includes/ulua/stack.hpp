@@ -387,31 +387,33 @@ namespace ulua::stack
 	//
 	ULUA_COLD static void dump_stack( lua_State* L )
 	{
-		printf( "[[ STACK DUMP, TOP = %d ]]\n", top( L ) );
+		printf( "[[ Dump(%d) ]]\n", top( L ) );
 		for ( slot s = 1; s <= top( L ); s++ )
 		{
 			std::string res = to_string( L, s );
 			if ( res.size() > 32 )
-				printf( " Stack[%d] = '%.32s...'\n", s, res.data() );
+				printf( "Stack[%d] = '%.32s...'\n", s, res.data() );
 			else
-				printf( " Stack[%d] = '%.*s'\n", s, ( int ) res.size(), res.data() );
+				printf( "Stack[%d] = '%.*s'\n", s, ( int ) res.size(), res.data() );
 		}
 	}
-	// Same as above, except it assumes the value is at the top of the stack.
+
+	// Same as pop_n, except it assumes the value is at the top of the stack.
 	//
-	ULUA_COLD static void validate_remove( lua_State* L, slot i, size_t n = 1 )
+	ULUA_INLINE static bool validate_remove( lua_State* L, slot i, size_t n = 1 )
 	{
-		if ( n && slot( i + n ) != slot( top( L ) + 1 ) ) [[unlikely]]
+		return !n || slot( i + n ) == slot( top( L ) + 1 );
+	}
+	ULUA_INLINE inline void checked_remove( lua_State* L, [[maybe_unused]] slot i, size_t n = 1 )
+	{
+#if ULUA_DEBUG
+		if ( !validate_remove( L, i, n ) ) [[unlikely]]
 		{
-			printf( ">> Remove from non-top slot detected while removing (%d, %d). <<\n", i, i + int( n ) - 1 );
+			printf( "[!] Remove from non-top detected while removing (%d, %d)!\n", i, i + int( n ) - 1 );
 			dump_stack( L );
 			detail::breakpoint();
 		}
-	}
-	inline void checked_remove( lua_State* L, [[maybe_unused]] slot i, size_t n = 1 )
-	{
-		if constexpr ( is_debug() )
-			validate_remove( L, i, n );
+#endif
 		pop_n( L, n );
 	}
 };
