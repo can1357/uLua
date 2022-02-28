@@ -280,28 +280,28 @@ namespace ulua::stack
 
 	// Creates a table and pushes it on stack.
 	//
-	inline static void create_table( lua_State* L, reserve_table rsvd = {} )
+	inline void create_table( lua_State* L, reserve_table rsvd = {} )
 	{
 		lua_createtable( L, rsvd.arr, rsvd.rec );
 	}
 
 	// Creates a metatable identified by a key and pushed it on stack, returns whether or not it was newly inserted.
 	//
-	inline static bool create_metatable( lua_State* L, const char* key )
+	inline bool create_metatable( lua_State* L, const char* key )
 	{
 		return luaL_newmetatable( L, key ) == 1;
 	}
 
 	// Pushes the metatable for a given object.
 	//
-	inline static bool push_metatable( lua_State* L, slot i )
+	inline bool push_metatable( lua_State* L, slot i )
 	{
 		return lua_getmetatable( L, i ) != 0;
 	}
 
 	// Pops the metatable and sets it for a given object.
 	//
-	inline static void set_metatable( lua_State* L, slot i )
+	inline void set_metatable( lua_State* L, slot i )
 	{
 		lua_setmetatable( L, i );
 	}
@@ -357,7 +357,7 @@ namespace ulua::stack
 
 	// String conversion.
 	//
-	ULUA_COLD static std::string to_string( lua_State* L, slot i )
+	ULUA_COLD inline std::string to_string( lua_State* L, slot i )
 	{
 		value_type t = type( L, i );
 		switch ( t )
@@ -385,7 +385,7 @@ namespace ulua::stack
 
 	// Dumps the stack on console.
 	//
-	ULUA_COLD static void dump_stack( lua_State* L )
+	ULUA_COLD inline void dump_stack( lua_State* L )
 	{
 		printf( "[[ Dump(%d) ]]\n", top( L ) );
 		for ( slot s = 1; s <= top( L ); s++ )
@@ -400,7 +400,7 @@ namespace ulua::stack
 
 	// Same as pop_n, except it assumes the value is at the top of the stack.
 	//
-	ULUA_INLINE static bool validate_remove( lua_State* L, slot i, size_t n = 1 )
+	ULUA_INLINE inline bool validate_remove( lua_State* L, slot i, size_t n = 1 )
 	{
 		return !n || slot( i + n ) == slot( top( L ) + 1 );
 	}

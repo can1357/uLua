@@ -12,7 +12,7 @@ namespace ulua
 		// Applies a function an pushes the result.
 		//
 		template<typename Ret, typename Args, typename F>
-		static int apply_closure( lua_State* L, F& func )
+		inline int apply_closure( lua_State* L, F& func )
 		{
 			return std::apply( [ & ] <typename... Tx> ( Tx&&... args ) -> int 
 			{
@@ -35,7 +35,7 @@ namespace ulua
 		// Pushes a runtime closure.
 		//
 		template<typename F>
-		static int push_closure( lua_State* L, F&& func )
+		inline int push_closure( lua_State* L, F&& func )
 		{
 			using Func =   std::decay_t<F>;
 			using Traits = detail::function_traits<Func>;
@@ -118,7 +118,7 @@ namespace ulua
 		// Pushes a constant closure.
 		//
 		template<auto F>
-		static int push_closure( lua_State* L, const_tag<F> )
+		inline int push_closure( lua_State* L, const_tag<F> )
 		{
 			using Func =   decltype( F );
 			using Traits = detail::function_traits<Func>;
