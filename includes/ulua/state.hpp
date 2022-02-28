@@ -47,9 +47,10 @@ namespace ulua
 		//
 		inline function_result decay_to_invocation() requires ( std::is_same_v<Ref, stack_reference> )
 		{
-			if constexpr ( is_debug() )
-				if ( Ref::slot() != stack::top( Ref::state() ) )
-					ulua::error( Ref::state(), ">> Decay from non-top slot <<" );
+#if ULUA_DEBUG
+			if ( Ref::slot() != stack::top( Ref::state() ) )
+				ulua::error( Ref::state(), ">> Decay from non-top slot <<" );
+#endif
 			Ref::release();
 			stack::slot top = stack::top( Ref::state() );
 			return function_result{ Ref::state(), top, top + 1, retval };
