@@ -406,14 +406,14 @@ namespace ulua::stack
 	}
 	ULUA_INLINE inline void checked_remove( lua_State* L, [[maybe_unused]] slot i, size_t n = 1 )
 	{
-#if ULUA_DEBUG
 		if ( !validate_remove( L, i, n ) ) [[unlikely]]
 		{
+#if ULUA_DEBUG
 			printf( "[!] Remove from non-top detected while removing (%d, %d)!\n", i, i + int( n ) - 1 );
 			dump_stack( L );
+#endif
 			detail::breakpoint();
 		}
-#endif
 		pop_n( L, n );
 	}
 };
