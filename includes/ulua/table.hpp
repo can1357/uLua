@@ -115,6 +115,21 @@ namespace ulua
 	template<Reference Ref>
 	struct basic_table : Ref, detail::lazy_indexable<basic_table<Ref>>
 	{
+		inline static bool check( lua_State* L, int& slot ) 
+		{
+#if ULUA_ACCEL
+			bool res = tvistab( accel::ref( L, slot++ ) );
+#else
+			bool res = stack::type( L, slot++ ) == value_type::table;
+#endif
+			return res; 
+		}
+		inline static void check_asserted( lua_State* L, int slot )
+		{
+			if ( !check( L, slot ) )
+				type_error( L, slot - 1, "table" );
+		}
+
 		inline constexpr basic_table() {}
 		template<typename... Tx> requires( sizeof...( Tx ) != 0 && detail::Constructible<Ref, Tx...> )
 		explicit inline constexpr basic_table( Tx&&... ref ) : Ref( std::forward<Tx>( ref )... ) {}

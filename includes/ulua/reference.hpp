@@ -12,6 +12,7 @@ namespace ulua
 	{
 		static constexpr bool is_direct = false;
 		inline static bool check( lua_State*, int& slot ) { slot++; return true; }
+		inline static void check_asserted( lua_State*, int ) {}
 	};
 	template<typename T>
 	concept Reference = std::is_base_of_v<reference_base, std::decay_t<T>>;
@@ -162,10 +163,12 @@ namespace ulua
 		{ 
 			if constexpr ( R::is_direct )
 			{
+				R::check_asserted( L, idx );
 				return R{ L, idx++, weak_t{} };
 			}
 			else
 			{
+				R::check_asserted( L, idx );
 				stack::copy( L, idx++ );
 				return R{ L, stack::top_t{} };
 			}

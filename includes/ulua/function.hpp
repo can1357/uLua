@@ -131,6 +131,21 @@ namespace ulua
 	template<Reference Ref>
 	struct basic_function : Ref, detail::lazy_invocable<basic_function<Ref>>
 	{
+		inline static bool check( lua_State* L, int& slot )
+		{
+#if ULUA_ACCEL
+			bool res = tvisfunc( accel::ref( L, slot++ ) );
+#else
+			bool res = stack::type( L, slot++ ) == value_type::function;
+#endif
+			return res;
+		}
+		inline static void check_asserted( lua_State* L, int slot )
+		{
+			if ( !check( L, slot ) )
+				type_error( L, slot - 1, "function" );
+		}
+
 		inline constexpr basic_function() {}
 		template<typename... Tx> requires( sizeof...( Tx ) != 0 && detail::Constructible<Ref, Tx...> )
 		explicit inline constexpr basic_function( Tx&&... ref ) : Ref( std::forward<Tx>( ref )... ) {}
