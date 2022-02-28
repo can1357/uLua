@@ -394,7 +394,7 @@ namespace ulua::stack
 			if ( res.size() > 32 )
 				printf( " Stack[%d] = '%.32s...'\n", s, res.data() );
 			else
-				printf( " Stack[%d] = '%.*s'\n", s, res.size(), res.data() );
+				printf( " Stack[%d] = '%.*s'\n", s, ( int ) res.size(), res.data() );
 		}
 	}
 	// Same as above, except it assumes the value is at the top of the stack.
@@ -403,7 +403,7 @@ namespace ulua::stack
 	{
 		if ( n && slot( i + n ) != slot( top( L ) + 1 ) ) [[unlikely]]
 		{
-			printf( ">> Remove from non-top slot detected while removing (%d, %d). <<\n", i, i + n - 1 );
+			printf( ">> Remove from non-top slot detected while removing (%d, %d). <<\n", i, i + int( n ) - 1 );
 			dump_stack( L );
 			detail::breakpoint();
 		}
