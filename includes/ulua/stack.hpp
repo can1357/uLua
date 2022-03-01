@@ -383,6 +383,18 @@ namespace ulua::stack
 		return *new ( lua_newuserdata( L, sizeof( T ) ) ) T( std::forward<Tx>( args )... );
 	}
 
+	// Called with a function on top of the stack, calls into the writer callback with each span of bytecode.
+	//
+	template<typename F>
+	inline bool dump_function( lua_State* L, F&& cb )
+	{
+		return lua_dump( L, [ ] ( lua_State* L, const void* p, size_t sz, void* ud )
+		{
+			( *( ( decltype( &cb ) ) ud ) )( std::span<const uint8_t>{ ( const uint8_t* ) p, sz } );
+			return 0;
+		}, &cb ) == 0;
+	}
+
 	// Dumps the stack on console.
 	//
 	ULUA_COLD inline void dump_stack( lua_State* L )

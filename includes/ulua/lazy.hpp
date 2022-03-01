@@ -121,6 +121,21 @@ namespace ulua::detail
 			( ( Ref* ) this )->reset( unchecked_t{} );
 			return pcall( state, std::forward<Tx>( args )... ); 
 		}
+
+		// Dumps as byte code, returns empty vector on failure.
+		//
+		std::vector<uint8_t> dump_bytecode() const
+		{
+			std::vector<uint8_t> result = {};
+			( ( Ref* ) this )->push();
+			bool okay = stack::dump_function( ( ( Ref* ) this )->state(), [ & ] ( std::span<const uint8_t> data )
+			{
+				result.insert( result.end(), data.begin(), data.end() );
+			} );
+			stack::pop_n( ( ( Ref* ) this )->state(), 1 );
+			if ( !okay ) result.clear();
+			return result;
+		}
 	};
 
 	// All the traits above.
