@@ -2,6 +2,7 @@
 #include "common.hpp"
 #include "stack.hpp"
 #include "reference.hpp"
+#include <vector>
 
 // Forward references.
 //
