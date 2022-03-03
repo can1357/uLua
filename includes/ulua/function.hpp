@@ -134,9 +134,11 @@ namespace ulua
 		inline static bool check( lua_State* L, int& slot )
 		{
 #if ULUA_ACCEL
-			bool res = tvisfunc( accel::ref( L, slot++ ) );
+			auto s = accel::ref( L, slot++ );
+			bool res = tvisfunc( s ) || tvisnil( s );
 #else
-			bool res = stack::type( L, slot++ ) == value_type::function;
+			auto s = stack::type( L, slot++ );
+			bool res = s == value_type::function || s == value_type::nil;
 #endif
 			return res;
 		}
