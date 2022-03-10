@@ -105,6 +105,8 @@ namespace ulua
 		template<typename C, typename R, typename... Tx>     struct remove_noexcept<R(C::*)(Tx..., ...) noexcept>        { using type = R(C::*)(Tx..., ...); };
 		template<typename C, typename R, typename... Tx>     struct remove_noexcept<R(C::*)(Tx...) const noexcept>       { using type = R(C::*)(Tx...) const; };
 		template<typename C, typename R, typename... Tx>     struct remove_noexcept<R(C::*)(Tx..., ...)  const noexcept> { using type = R(C::*)(Tx..., ...) const; };
+		template<typename R, typename... Tx>                 struct remove_noexcept<R(*)(Tx...) noexcept>                { using type = R(*)(Tx...); };
+		template<typename R, typename... Tx>                 struct remove_noexcept<R(*)(Tx..., ...) noexcept>           { using type = R(*)(Tx..., ...); };
 		template<typename T>
 		using remove_noexcept_t = typename remove_noexcept<T>::type;
 
