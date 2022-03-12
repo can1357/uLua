@@ -115,16 +115,11 @@ namespace ulua
 	template<Reference Ref>
 	struct basic_table : Ref, detail::lazy_indexable<basic_table<Ref>>
 	{
-		inline static bool check( lua_State* L, int& slot ) 
+		ULUA_INLINE inline static bool check( lua_State* L, int& slot ) 
 		{
-#if ULUA_ACCEL
-			bool res = tvistab( accel::ref( L, slot++ ) );
-#else
-			bool res = stack::type( L, slot++ ) == value_type::table;
-#endif
-			return res; 
+			return stack::type_check<value_type::table>( L, slot++ );
 		}
-		inline static void check_asserted( lua_State* L, int slot )
+		ULUA_INLINE inline static void check_asserted( lua_State* L, int slot )
 		{
 			if ( !check( L, slot ) )
 				type_error( L, slot - 1, "table" );

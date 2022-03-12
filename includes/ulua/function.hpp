@@ -131,18 +131,15 @@ namespace ulua
 	template<Reference Ref>
 	struct basic_function : Ref, detail::lazy_invocable<basic_function<Ref>>
 	{
-		inline static bool check( lua_State* L, int& slot )
+		ULUA_INLINE inline static bool check( lua_State* L, int& slot )
 		{
-#if ULUA_ACCEL
-			auto s = accel::ref( L, slot++ );
-			bool res = tvisfunc( s ) || tvisnil( s );
-#else
-			auto s = stack::type( L, slot++ );
-			bool res = s == value_type::function || s == value_type::nil;
-#endif
+			bool res = 
+				stack::type_check<value_type::table>( L, slot ) ||
+				stack::type_check<value_type::nil>( L, slot );
+			slot++;
 			return res;
 		}
-		inline static void check_asserted( lua_State* L, int slot )
+		ULUA_INLINE inline static void check_asserted( lua_State* L, int slot )
 		{
 			if ( !check( L, slot ) )
 				type_error( L, slot - 1, "function" );
