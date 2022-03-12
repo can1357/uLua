@@ -41,14 +41,14 @@ namespace ulua
 	template<typename T, auto N>
 	struct type_traits<named<T, N>>
 	{
-		inline static bool check( lua_State* L, int& idx )
+		ULUA_INLINE inline static bool check( lua_State* L, int& idx )
 		{
 			stack::get_field( L, idx, ( const char* ) N.get() );
 			bool result = stack::check<T>( L, stack::top_t{} );
 			stack::pop_n( L, 1 );
 			return result;
 		}
-		inline static named<T, N> get( lua_State* L, int& idx )
+		ULUA_INLINE inline static named<T, N> get( lua_State* L, int& idx )
 		{
 			stack::get_field( L, idx, ( const char* ) N.get() );
 			return stack::pop<T>( L );

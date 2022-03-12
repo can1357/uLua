@@ -165,12 +165,12 @@ namespace ulua
 	struct type_traits<userdata_wrapper<T>>
 	{
 		// No pusher.
-		inline static bool check( lua_State* L, int& idx ) 
+		ULUA_INLINE inline static bool check( lua_State* L, int& idx )
 		{ 
 			auto wrapper = ( userdata_wrapper<T>* ) type_traits<userdata_value>::get( L, idx ).pointer;
 			return wrapper && wrapper->check_type() && wrapper->check_qual();
 		}
-		inline static userdata_wrapper<T>& get( lua_State* L, int& idx ) 
+		ULUA_INLINE inline static userdata_wrapper<T>& get( lua_State* L, int& idx )
 		{
 			int i = idx;
 			auto wrapper = ( userdata_wrapper<T>* ) type_traits<userdata_value>::get( L, idx ).pointer;
@@ -187,7 +187,7 @@ namespace ulua
 	struct user_type_traits : emplacable_tag_t
 	{
 		template<typename... Tx>
-		inline static int emplace( lua_State* L, Tx&&... args )
+		ULUA_INLINE inline static int emplace( lua_State* L, Tx&&... args )
 		{
 			stack::emplace_userdata<userdata_by_value<std::remove_const_t<T>>>( L, std::forward<Tx>( args )... );
 			userdata_metatable<std::remove_const_t<T>>::push( L );
@@ -195,15 +195,15 @@ namespace ulua
 			return 1;
 		}
 		template<typename V = T>
-		inline static int push( lua_State* L, V&& value )
+		ULUA_INLINE inline static int push( lua_State* L, V&& value )
 		{
 			return emplace( L, std::forward<V>( value ) );
 		}
-		inline static bool check( lua_State* L, int& idx )
+		ULUA_INLINE inline static bool check( lua_State* L, int& idx )
 		{
 			return type_traits<userdata_wrapper<T>>::check( L, idx );
 		}
-		inline static std::reference_wrapper<T> get( lua_State* L, int& idx )
+		ULUA_INLINE inline static std::reference_wrapper<T> get( lua_State* L, int& idx )
 		{
 			return type_traits<userdata_wrapper<T>>::get( L, idx ).value();
 		}
@@ -211,7 +211,7 @@ namespace ulua
 	template<typename T>
 	struct user_type_traits<T&&> : user_type_traits<T>
 	{
-		inline static T&& get( lua_State* L, int& idx )
+		ULUA_INLINE inline static T&& get( lua_State* L, int& idx )
 		{
 			return std::move( user_type_traits<T>::get( L, idx ) );
 		}
@@ -219,19 +219,19 @@ namespace ulua
 	template<typename T>
 	struct user_type_traits<T*>
 	{
-		inline static int push( lua_State* L, T* pointer )
+		ULUA_INLINE inline static int push( lua_State* L, T* pointer )
 		{
 			stack::emplace_userdata<userdata_by_pointer<T>>( L, pointer );
 			userdata_metatable<std::remove_const_t<T>>::push( L );
 			stack::set_metatable( L, -2 );
 			return 1;
 		}
-		inline static T* get( lua_State* L, int& idx )
+		ULUA_INLINE inline static T* get( lua_State* L, int& idx )
 		{
 			T& result = user_type_traits<T>::get( L, idx );
 			return &result;
 		}
-		inline static bool check( lua_State* L, int& idx ) { return user_type_traits<T>::check( L, idx ); }
+		ULUA_INLINE inline static bool check( lua_State* L, int& idx ) { return user_type_traits<T>::check( L, idx ); }
 	};
 	template<UserType T> struct type_traits<T&&> :                                        user_type_traits<T&&> {};
 	template<UserType T> struct type_traits<T&> :                                         user_type_traits<T> {};
