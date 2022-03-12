@@ -82,7 +82,7 @@ namespace ulua
 			if constexpr ( !std::is_same_v<std::decay_t<G>, std::nullopt_t> )
 				stack::push( L, getter( L, value ) );
 			else
-				error( L, "attempt to get write-only field '%.*s'", name.length(), name.data() );
+				error( L, "getting write-only property" );
 		}
 
 		template<typename T>
@@ -91,7 +91,7 @@ namespace ulua
 			if constexpr ( !std::is_same_v<std::decay_t<S>, std::nullopt_t> )
 				setter( L, value, ref );
 			else
-				error( L, "attempt to set read-only field '%.*s'", name.length(), name.data() );
+				error( L, "setting read-only property" );
 		}
 	};
 	template<typename G, typename S> member_descriptor( std::string_view, G&&, S&& )->member_descriptor<G, S>;
@@ -277,8 +277,7 @@ namespace ulua
 					}
 				}
 			}
-
-			error( L, "attempt to get undefined field '%s'", stack::to_string( L, k.slot() ).data() );
+			return { 0 };
 		}
 		static void newindex( lua_State* L, const userdata_wrapper<T>& u, const stack_object& k, const stack_object& v )
 		{
@@ -297,8 +296,7 @@ namespace ulua
 					return;
 				}
 			}
-
-			error( L, "attempt to set undefined field '%s'", stack::to_string( L, k.slot() ).data() );
+			error( L, "setting undefined property" );
 		}
 
 		// String conversation of the object.

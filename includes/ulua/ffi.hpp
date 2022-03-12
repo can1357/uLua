@@ -64,23 +64,23 @@ namespace ulua
 
 		template<typename... Tx>
 		userdata_wrapper( Tx&&... args ) : tag( make_tag() ), storage( std::forward<Tx>( args )... ) {}
-		inline bool check_type() const { return tag == make_tag(); }
+		inline constexpr bool check_type() const { return tag == make_tag(); }
 #else
 
 		mutable std::remove_const_t<T> storage;
 
 		template<typename... Tx>
-		userdata_wrapper( Tx&&... args ) : storage( std::forward<Tx>( args )... ) {}
-		inline bool check_type() const { return true; }
+		constexpr userdata_wrapper( Tx&&... args ) : storage( std::forward<Tx>( args )... ) {}
+		inline constexpr bool check_type() const { return true; }
 #endif
 
 		inline constexpr bool check_qual() const { return true; }
 
-		inline operator T*() const { return &storage; }
-		inline T* get() const { return &storage; }
-		inline T& value() const { return storage; }
+		inline constexpr T* get() const { return &storage; }
+		inline constexpr operator T*() const { return get(); }
+		inline constexpr T& value() const { return *get(); }
 
-		inline void destroy() const { std::destroy_at( &storage ); }
+		inline constexpr void destroy() const { std::destroy_at( &storage ); }
 	};
 
 	// Replace userdata_by_value.

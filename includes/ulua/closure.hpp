@@ -12,9 +12,9 @@ namespace ulua
 		// Applies a function an pushes the result.
 		//
 		template<typename Ret, typename Args, typename F>
-		inline int apply_closure( lua_State* L, F& func )
+		ULUA_INLINE inline int apply_closure( lua_State* L, F& func )
 		{
-			return std::apply( [ & ] <typename... Tx> ( Tx&&... args ) -> int 
+			return std::apply( [ & ] <typename... Tx> ( Tx&&... args ) ULUA_INLINE -> int 
 			{
 				if constexpr ( std::is_void_v<Ret> )
 				{
