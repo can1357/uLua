@@ -325,38 +325,6 @@ namespace ulua::stack
 		return luaL_getmetafield( L, i, metafield_name( field ) ) != 0;
 	}
 
-	// Gets the type of the value in the stack slot.
-	//
-	inline value_type type( lua_State* L, slot i ) 
-	{
-		return ( value_type ) lua_type( L, i );
-	}
-
-	// Checks the type of the value in the stack against a known type.
-	//
-	template<value_type T>
-	ULUA_INLINE inline bool type_check( lua_State* L, slot i )
-	{
-#if ULUA_ACCEL
-		switch ( T )
-		{
-			case value_type::nil:            return tvisnil( accel::ref( L, i ) );
-			case value_type::boolean:        return tvisbool( accel::ref( L, i ) );
-			case value_type::light_userdata: return tvislightud( accel::ref( L, i ) );
-			case value_type::number:         return tvisnumber( accel::ref( L, i ) );
-			case value_type::string:         return tvisstr( accel::ref( L, i ) );
-			case value_type::table:          return tvistab( accel::ref( L, i ) );
-			case value_type::function:       return tvisfunc( accel::ref( L, i ) );
-			case value_type::userdata:       return tvisudata( accel::ref( L, i ) );
-			case value_type::thread:         return tvisthread( accel::ref( L, i ) );
-			case value_type::cdata:          return tviscdata( accel::ref( L, i ) );
-			default:
-				break;
-		}
-#endif
-		return type( L, i ) == T;
-	}
-
 	// Pushes a closure value popping N values into its upvalues.
 	//
 	inline int push_closure( lua_State* L, cfunction_t fn, slot upvalue_count = 0 )

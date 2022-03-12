@@ -84,11 +84,7 @@ namespace ulua
 		}
 		ULUA_INLINE static bool check( lua_State* L, int& idx )
 		{
-#if ULUA_ACCEL
-			return tvisthread( accel::ref( L, idx++ ) );
-#else
-			return lua_type( L, idx++ ) == ( int ) value_type::thread;
-#endif
+			return stack::type_check<value_type::thread>( L, idx++ );
 		}
 		ULUA_INLINE static coroutine get( lua_State* L, int& idx )
 		{
@@ -101,7 +97,7 @@ namespace ulua
 			if ( auto f = lua_tothread( L, idx++ ) ) [[likely]]
 				return { f };
 #endif
-			type_error( L, i, "coroutine" );
+			type_error( L, i, "thread" );
 		}
 	};
 };

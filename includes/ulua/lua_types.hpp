@@ -26,6 +26,48 @@ namespace ulua
 	};
 	inline const char* type_name( value_type type ) { return lua_typename( nullptr, ( int ) type ); }
 
+	// Define stack type-checks here as stack header depends on this one.
+	//
+	namespace stack
+	{
+		// Gets the type of the value in the stack slot.
+		//
+		ULUA_INLINE inline value_type type( lua_State* L, int i )
+		{
+			return ( value_type ) lua_type( L, i );
+		}
+
+		// Checks the type of the value in the stack against a known type.
+		//
+		template<value_type T>
+		ULUA_INLINE inline bool type_check( lua_State* L, int i )
+		{
+#if !ULUA_ACCEL
+			if constexpr ( T == value_type::nil )
+				return lua_type( L, idx++ ) <= ( int ) value_type::nil;
+			else
+				return type( L, i ) == T;
+#else
+			switch ( T )
+			{
+				case value_type::nil:            return tvisnil( accel::ref( L, i ) );
+				case value_type::boolean:        return tvisbool( accel::ref( L, i ) );
+				case value_type::light_userdata: return tvislightud( accel::ref( L, i ) );
+				case value_type::number:         return tvisnumber( accel::ref( L, i ) );
+				case value_type::string:         return tvisstr( accel::ref( L, i ) );
+				case value_type::table:          return tvistab( accel::ref( L, i ) );
+				case value_type::function:       return tvisfunc( accel::ref( L, i ) );
+				case value_type::userdata:       return tvisudata( accel::ref( L, i ) );
+				case value_type::thread:         return tvisthread( accel::ref( L, i ) );
+#if ULUA_JIT
+				case value_type::cdata:          return tviscdata( accel::ref( L, i ) );
+#endif
+				default: break;
+			}
+#endif
+		}
+	};
+
 	// Metatable fields.
 	//
 	enum class meta : uint8_t
@@ -110,11 +152,7 @@ namespace ulua
 		}
 		ULUA_INLINE static bool check( lua_State* L, int& idx )
 		{
-#if ULUA_ACCEL
-			return tvisnumber( accel::ref( L, idx++ ) );
-#else
-			return lua_type( L, idx++ ) == ( int ) value_type::number;
-#endif
+			return stack::type_check<value_type::number>( L, idx++ );
 		}
 		ULUA_INLINE static T get( lua_State* L, int& idx )
 		{
@@ -156,11 +194,7 @@ namespace ulua
 		}
 		ULUA_INLINE static bool check( lua_State* L, int& idx )
 		{
-#if ULUA_ACCEL
-			return tvisnumber( accel::ref( L, idx++ ) );
-#else
-			return lua_type( L, idx++ ) == ( int ) value_type::number;
-#endif
+			return stack::type_check<value_type::number>( L, idx++ );
 		}
 		ULUA_INLINE static T get( lua_State* L, int& idx )
 		{
@@ -187,11 +221,7 @@ namespace ulua
 		}
 		ULUA_INLINE static bool check( lua_State* L, int& idx )
 		{
-#if ULUA_ACCEL
-			return tvisstr( accel::ref( L, idx++ ) );
-#else
-			return lua_type( L, idx++ ) == ( int ) value_type::string;
-#endif
+			return stack::type_check<value_type::string>( L, idx++ );
 		}
 		ULUA_INLINE static std::string_view get( lua_State* L, int& idx )
 		{
@@ -233,7 +263,7 @@ namespace ulua
 		}
 		ULUA_INLINE static bool check( lua_State* L, int& idx )
 		{
-			return lua_type( L, idx++ ) <= ( int ) value_type::nil;
+			return stack::type_check<value_type::nil>( L, idx++ );
 		}
 		ULUA_INLINE static nil_t get( lua_State*, int& idx )
 		{
@@ -256,11 +286,7 @@ namespace ulua
 		}
 		ULUA_INLINE static bool check( lua_State* L, int& idx )
 		{
-#if ULUA_ACCEL
-			return tvisbool( accel::ref( L, idx++ ) );
-#else
-			return lua_type( L, idx++ ) == ( int ) value_type::boolean;
-#endif
+			return stack::type_check<value_type::boolean>( L, idx++ );
 		}
 		ULUA_INLINE static bool get( lua_State* L, int& idx )
 		{
@@ -281,11 +307,7 @@ namespace ulua
 		}
 		ULUA_INLINE static bool check( lua_State* L, int& idx )
 		{
-#if ULUA_ACCEL
-			return tvisfunc( accel::ref( L, idx++ ) );
-#else
 			return lua_tocfunction( L, idx++ );
-#endif
 		}
 		ULUA_INLINE static cfunction_t get( lua_State* L, int& idx )
 		{
@@ -305,11 +327,7 @@ namespace ulua
 		}
 		ULUA_INLINE static bool check( lua_State* L, int& idx )
 		{
-#if ULUA_ACCEL
-			return tvislightud( accel::ref( L, idx++ ) );
-#else
-			return lua_type( L, idx++ ) == ( int ) value_type::light_userdata;
-#endif
+			return stack::type_check<value_type::light_userdata>( L, idx++ );
 		}
 		ULUA_INLINE static light_userdata get( lua_State* L, int& idx )
 		{
@@ -329,11 +347,7 @@ namespace ulua
 		// No pusher.
 		ULUA_INLINE static bool check( lua_State* L, int& idx )
 		{
-#if ULUA_ACCEL
-			return tvisudata( accel::ref( L, idx++ ) );
-#else
-			return lua_type( L, idx++ ) == ( int ) value_type::userdata;
-#endif
+			return stack::type_check<value_type::userdata>( L, idx++ );
 		}
 		ULUA_INLINE static userdata_value get( lua_State* L, int& idx )
 		{
@@ -526,7 +540,7 @@ namespace ulua
 		}
 		ULUA_INLINE static bool check( lua_State* L, int& idx )
 		{
-			return tviscdata( accel::ref( L, idx++ ) );
+			return stack::type_check<value_type::cdata>( L, idx++ );
 		}
 		ULUA_INLINE static cdata_value get( lua_State* L, int& idx )
 		{
