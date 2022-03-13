@@ -30,14 +30,16 @@ namespace ulua::ffi
 	//
 	inline function_result cdef( state_view state, std::string_view src )
 	{
-		return state[ "ffi" ][ "cdef" ]( src );
+		stack_table t{ state, LUA_REGISTRYINDEX, weak_t{} };
+		return t[ "_LOADED" ][ "ffi" ][ "cdef" ]( src );
 	}
 
 	// Sets the metatable for a given type name.
 	//
 	inline function_result set_metatable( state_view state, const char* type_name, const table& tbl )
 	{
-		return state[ "ffi" ][ "metatype" ]( type_name, tbl );
+		stack_table t{ state, LUA_REGISTRYINDEX, weak_t{} };
+		return t[ "_LOADED" ][ "ffi" ][ "metatype" ]( type_name, tbl );
 	}
 };
 
