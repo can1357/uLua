@@ -134,7 +134,7 @@ namespace ulua
 		ULUA_INLINE inline static bool check( lua_State* L, int& slot )
 		{
 			bool res = 
-				stack::type_check<value_type::table>( L, slot ) ||
+				stack::type_check<value_type::function>( L, slot ) ||
 				stack::type_check<value_type::nil>( L, slot );
 			slot++;
 			return res;
