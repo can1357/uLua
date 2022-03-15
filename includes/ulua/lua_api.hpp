@@ -17,6 +17,8 @@ extern "C" {
 		#include <lj_state.h>
 		#include <lj_cdata.h>
 		#include <lj_cparse.h>
+		#include <lj_tab.h>
+		#include <lj_str.h>
 	};
 	#ifdef ULUA_NO_ACCEL
 		#define ULUA_ACCEL 0
@@ -42,17 +44,17 @@ extern "C" {
 			{
 				return L->top + idx;
 			}
-			else if ( idx == LUA_GLOBALSINDEX )
+			else if ( idx == LUA_GLOBALSINDEX ) [[unlikely]]
 			{
 				TValue* o = &G( L )->tmptv;
 				settabV( L, o, tabref( L->env ) );
 				return o;
 			}
-			else if ( idx == LUA_REGISTRYINDEX )
+			else if ( idx == LUA_REGISTRYINDEX ) [[unlikely]]
 			{
 				return registry( L );
 			}
-			else
+			else [[unlikely]]
 			{
 				GCfunc* fn = curr_func( L );
 				if ( idx == LUA_ENVIRONINDEX )

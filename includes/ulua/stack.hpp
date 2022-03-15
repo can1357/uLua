@@ -193,7 +193,7 @@ namespace ulua::stack
 	{
 		if constexpr ( std::is_same_v<T, meta> )
 		{
-			get_field( L, i, metafield_name( key ), std::bool_constant<Raw>{} );
+			get_field( L, i, metafield_name( key ), std::bool_constant<true>{} );
 		}
 		else if constexpr ( Raw )
 		{
@@ -203,6 +203,7 @@ namespace ulua::stack
 			}
 			else
 			{
+				i = abs( L, i );
 				push( L, key );
 				lua_rawget( L, i );
 			}
@@ -219,6 +220,7 @@ namespace ulua::stack
 			}
 			else
 			{
+				i = abs( L, i );
 				push( L, key );
 				lua_gettable( L, i );
 			}
@@ -232,7 +234,7 @@ namespace ulua::stack
 	{
 		if constexpr ( std::is_same_v<T, meta> )
 		{
-			set_field( L, i, metafield_name( key ), std::bool_constant<Raw>{} );
+			set_field( L, i, metafield_name( key ), std::bool_constant<true>{} );
 		}
 		else if constexpr ( Raw )
 		{
@@ -242,6 +244,7 @@ namespace ulua::stack
 			}
 			else
 			{
+				i = abs( L, i );
 				push( L, key );
 #if ULUA_ACCEL
 				accel::xchg( L, -1, -2 );
@@ -265,6 +268,7 @@ namespace ulua::stack
 			}
 			else
 			{
+				i = abs( L, i );
 				push( L, key );
 #if ULUA_ACCEL
 				accel::xchg( L, -1, -2 );

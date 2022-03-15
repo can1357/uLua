@@ -216,7 +216,12 @@ namespace ulua
 	{
 		ULUA_INLINE static int push( lua_State* L, std::string_view value )
 		{
+#if ULUA_ACCEL
+			setstrV( L, L->top, lj_str_new( L, value.data(), value.size() ) );
+			incr_top( L );
+#else
 			lua_pushlstring( L, value.data(), value.length() );
+#endif
 			return 1;
 		}
 		ULUA_INLINE static bool check( lua_State* L, int& idx )
