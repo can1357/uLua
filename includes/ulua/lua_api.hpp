@@ -35,26 +35,26 @@ extern "C" {
 	{
 		inline TValue* ref( lua_State* L, int idx )
 		{
-			if ( idx > 0 )
+			if ( idx > 0 ) [[likely]]
 			{
 				TValue* o = L->base + ( idx - 1 );
 				return o < L->top ? o : niltv( L );
 			}
-			else if ( idx > LUA_REGISTRYINDEX )
+			else if ( idx > LUA_REGISTRYINDEX ) [[likely]]
 			{
 				return L->top + idx;
 			}
-			else if ( idx == LUA_GLOBALSINDEX ) [[unlikely]]
+			else if ( idx == LUA_GLOBALSINDEX )
 			{
 				TValue* o = &G( L )->tmptv;
 				settabV( L, o, tabref( L->env ) );
 				return o;
 			}
-			else if ( idx == LUA_REGISTRYINDEX ) [[unlikely]]
+			else if ( idx == LUA_REGISTRYINDEX )
 			{
 				return registry( L );
 			}
-			else [[unlikely]]
+			else
 			{
 				GCfunc* fn = curr_func( L );
 				if ( idx == LUA_ENVIRONINDEX )
