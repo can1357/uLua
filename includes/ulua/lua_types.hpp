@@ -404,10 +404,9 @@ namespace ulua
 			} );
 			return valid;
 		}
-		using variant_result_t = std::variant<detail::popped_type_t<Tx>...>;
-		ULUA_INLINE static variant_result_t get( lua_State* L, int& idx )
+		ULUA_INLINE static std::variant<Tx...> get( lua_State* L, int& idx )
 		{
-			std::optional<variant_result_t> result = {};
+			std::optional<std::variant<Tx...>> result = {};
 			detail::enum_indices<sizeof...( Tx )>( [ & ] <size_t N> ( const_tag<N> )
 			{
 				using T = std::variant_alternative_t<N, std::variant<Tx...>>;
@@ -415,11 +414,11 @@ namespace ulua
 
 				int i = idx;
 				if ( type_traits<T>::check( L, i ) )
-					result.emplace( variant_result_t{ std::in_place_index_t<N>{}, type_traits<T>::get( L, idx ) } );
+					result.emplace( std::in_place_index_t<N>{}, type_traits<T>::get( L, idx ) );
 			} );
 			if ( !result.has_value() )
 			{
-#if ULUA_NO_CTTI
+#if ULUA_CTTI
 				type_error( L, idx, "variant<...>" );
 #else
 				const char* name = detail::ctti_namer<std::variant<Tx...>>{};

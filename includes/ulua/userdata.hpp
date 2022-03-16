@@ -45,7 +45,7 @@ namespace ulua
 		template<typename T>
 		struct userdata_namer
 		{
-#if ULUA_NO_CTTI
+#if ULUA_CTTI
 			// Generate anonymous runtime type and metatable names.
 			//
 			inline static const std::string _metatable_name = "@anon" + std::to_string( ++unnamed_type_counter );
