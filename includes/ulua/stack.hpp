@@ -258,6 +258,7 @@ namespace ulua::stack
 		}
 		else
 		{
+#if !ULUA_ACCEL
 			if constexpr ( std::convertible_to<T, const char*> )
 			{
 				lua_setfield( L, i, ( const char* ) key );
@@ -267,6 +268,7 @@ namespace ulua::stack
 				lua_setfield( L, i, key.data() );
 			}
 			else
+#endif
 			{
 				i = abs( L, i );
 				push( L, key );
