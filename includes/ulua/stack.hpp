@@ -77,9 +77,9 @@ namespace ulua::stack
 	inline int emplace( lua_State* L, Tx&&... args )
 	{
 		if constexpr ( Emplacable<T> )
-			return type_traits<T>::emplace( L, std::forward<T>( value ) );
+			return type_traits<T>::emplace( L, std::forward<Tx>( args )... );
 		else
-			return type_traits<T>::push( L, { std::forward<T>( value ) } );
+			return type_traits<T>::push( L, T{ std::forward<Tx>( args )... } );
 	}
 
 	// Pops a given number of items from the top of the stack.
