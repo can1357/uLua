@@ -191,9 +191,9 @@ namespace ulua
 			// Emplace the C type.
 			//
 			auto* cd = lj_cdata_new_( L, cache::fetch( L ), sizeof( userdata_wrapper<T> ) );
+			new ( cdataptr( cd ) ) userdata_wrapper<T>( std::forward<Tx>( args )... );
 			setcdataV( L, L->top, cd );
 			incr_top( L );
-			new ( cdataptr( cd ) ) userdata_wrapper<T>( std::forward<Tx>( args )... );
 			return 1;
 		}
 		template<typename V = T>
