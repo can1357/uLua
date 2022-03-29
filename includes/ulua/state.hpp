@@ -200,27 +200,33 @@ namespace ulua
 
 		// Explicit null construction.
 		//
-		inline state( nil_t ) : state_view( nullptr ) {}
+		constexpr inline state( nil_t ) : state_view( nullptr ) {}
 
 		// Closes the lua state.
 		//
 		inline void close()
 		{
-			if ( auto* p = std::exchange( L, nullptr ) )
-				lua_close( p );
+			if ( L )
+			{
+				lua_close( L );
+				L = nullptr;
+			}
 		}
 
 		// Resets the lua state.
 		//
-		inline void reset() 
+		inline void reset()
 		{
-			if ( auto* p = std::exchange( L, luaL_newstate() ) )
-				lua_close( p );
+			reset( luaL_newstate() );
 		}
 		inline void reset( lua_Alloc allocf, void* allocd )
 		{
-			if ( auto* p = std::exchange( L, lua_newstate( allocf, allocd ) ) )
-				lua_close( p );
+			reset( lua_newstate( allocf, allocd ) );
+		}
+		inline void reset( lua_State* new_state )
+		{
+			close();
+			L = new_state;
 		}
 
 		// Close on destruction.
