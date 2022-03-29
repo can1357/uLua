@@ -33,19 +33,19 @@ namespace ulua
 	struct weak_t {};
 	struct stack_reference : reference_base
 	{
-		static constexpr bool is_direct = true;
+		static constexpr int invalid_value = 0x7FFFFFFF;
+		static constexpr bool is_direct =    true;
 
 		lua_State* L = nullptr;
-		int index = 0;
-		bool valid_flag = false;
+		int index = invalid_value;
 		bool ownership_flag = false;
 
 		// Construction, copy & move.
 		//
 		inline constexpr stack_reference() {}
 		inline constexpr stack_reference( nullref_t ) {}
-		inline constexpr stack_reference( lua_State* L, int index ) : L( L ), index( stack::abs( L, index ) ), valid_flag( true ), ownership_flag( true ) {}
-		inline constexpr stack_reference( lua_State* L, int index, weak_t ) : L( L ), index( stack::abs( L, index ) ), valid_flag( true ), ownership_flag( false ) {}
+		inline constexpr stack_reference( lua_State* L, int index ) : L( L ), index( stack::abs( L, index ) ), ownership_flag( true ) { detail::assume_true( this->index != invalid_value ); }
+		inline constexpr stack_reference( lua_State* L, int index, weak_t ) : L( L ), index( stack::abs( L, index ) ), ownership_flag( false ) { detail::assume_true( this->index != invalid_value ); }
 
 		inline constexpr stack_reference( stack_reference&& o ) noexcept { swap( o ); }
 		inline constexpr stack_reference& operator=( stack_reference&& o ) noexcept { swap( o ); return *this; }
@@ -56,7 +56,6 @@ namespace ulua
 		{
 			std::swap( L, other.L );
 			std::swap( index, other.index );
-			std::swap( valid_flag, other.valid_flag );
 			std::swap( ownership_flag, other.ownership_flag );
 		}
 
@@ -70,32 +69,42 @@ namespace ulua
 		inline constexpr lua_State* state() const { return L; }
 		inline constexpr int slot() const { return index; }
 		inline void push() const { lua_pushvalue( state(), slot() ); }
-		inline constexpr bool valid() const { return valid_flag; }
-		inline constexpr void release() { valid_flag = false; }
+		inline constexpr bool valid() const { return index != invalid_value; }
+		inline constexpr int release() { return std::exchange( index, invalid_value ); }
 		inline constexpr void reset()
 		{
-			if ( std::exchange( valid_flag, false ) && std::exchange( ownership_flag, false ) && stack::is_absolute( index ) )
-				stack::checked_remove( L, index );
+			if ( valid() )
+			{
+				int s = release();
+				if ( ownership_flag && stack::is_absolute( s ) )
+					stack::checked_remove( L, s );
+			}
 		}
 		inline constexpr void reset( detail::unchecked_t )
 		{
-			if ( std::exchange( valid_flag, false ) && std::exchange( ownership_flag, false ) && stack::is_absolute( index ) )
-				stack::remove( L, index );
+			if ( valid() )
+			{
+				int s = release();
+				if ( ownership_flag && stack::is_absolute( s ) )
+					stack::remove( L, s );
+			}
 		}
 		inline constexpr ~stack_reference() { reset(); }
 	};
 	struct registry_reference : reference_base
 	{
+		static constexpr reg_key invalid_value = {};
+		static constexpr bool is_direct =    false;
+
 		lua_State* L = nullptr;
 		reg_key key = {};
-		bool valid_flag = false;
 
 		// Construction, copy & move.
 		//
 		inline constexpr registry_reference() {}
 		inline constexpr registry_reference( nullref_t ) {}
-		inline constexpr registry_reference( lua_State* L, reg_key key ) : L( L ), key( key ), valid_flag( true ) {}
-		inline constexpr registry_reference( lua_State* L, nil_t ) : L( L ), key{ LUA_REFNIL }, valid_flag( true ) {}
+		inline constexpr registry_reference( lua_State* L, reg_key key ) : L( L ), key( key ) { detail::assume_true( this->key != invalid_value ); }
+		inline constexpr registry_reference( lua_State* L, nil_t ) : L( L ), key{ LUA_REFNIL } {}
 		inline registry_reference( lua_State* L, stack::top_t ) : registry_reference( L, stack::pop_reg( L ) ) {}
 
 		inline constexpr registry_reference( registry_reference&& o ) noexcept { swap( o ); }
@@ -106,7 +115,6 @@ namespace ulua
 		{
 			std::swap( L, other.L );
 			std::swap( key.key, other.key.key );
-			std::swap( valid_flag, other.valid_flag );
 		}
 		template<typename Ref>
 		inline void assign( const Ref& o )
@@ -117,7 +125,6 @@ namespace ulua
 				o.push();
 				L = o.L;
 				key = stack::pop_reg( L );
-				valid_flag = true;
 			}
 		}
 
@@ -141,12 +148,12 @@ namespace ulua
 		inline constexpr lua_State* state() const { return L; }
 		inline constexpr reg_key registry_key() const { return key; }
 		inline void push() const { stack::push_reg( L, key ); }
-		inline constexpr bool valid() const { return valid_flag; }
-		inline constexpr void release() { valid_flag = false; }
+		inline constexpr bool valid() const { return key != invalid_value; }
+		inline constexpr reg_key release() { return std::exchange( key, invalid_value ); }
 		inline constexpr void reset()
 		{
-			if ( std::exchange( valid_flag, false ) )
-				unref( L, key );
+			if ( valid() )
+				unref( L, release() );
 		}
 		inline constexpr void reset( detail::unchecked_t ) { reset(); }
 		inline constexpr ~registry_reference() { reset(); }

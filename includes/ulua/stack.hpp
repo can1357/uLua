@@ -23,7 +23,11 @@ namespace ulua
 { 
 	// Registry key wrapper.
 	//
-	struct reg_key { int key = LUA_NOREF; };
+	struct reg_key 
+	{ 
+		int key = LUA_NOREF; 
+		constexpr auto operator<=>( const reg_key& o ) const noexcept = default;
+	};
 
 	// Dereferencing of a registry key.
 	//
