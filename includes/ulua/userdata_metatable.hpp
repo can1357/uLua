@@ -311,14 +311,15 @@ namespace ulua
 
 		// Comparison of the object.
 		//
-		static bool eq( const userdata_wrapper<const T>& a, const T* b )
+		static bool eq( const userdata_wrapper<const T>& a, const stack_object& _b )
 		{
-			if ( a.get() == b ) return true;
-
+			if ( !_b.is<const T>() ) return false;
+			
+			const T* b = _b.as<const T*>();
 			if constexpr ( detail::EqComparable<T> )
 				return a.value() == *b;
-			
-			return false;
+			else
+				return a.get() == b;
 		}
 		static bool lt( const userdata_wrapper<const T>& a, const T* b )
 		{
@@ -637,16 +638,16 @@ namespace ulua
 			{
 				set_meta<meta::pow>( metatable );
 			}
-			else if constexpr ( detail::Powable<T, T> || detail::Powable<T, int64_t> )
+			else if constexpr ( detail::Powable<T, T> || detail::Powable<T, double> )
 			{
 				metatable[ meta::pow ] = [ ] ( const userdata_wrapper<const T>& a, const stack_object& obj ) -> decltype( auto )
 				{
 					if constexpr ( detail::Powable<T, T> )
 						if ( obj.is<userdata_wrapper<const T>>() )
 							return pow( a.value(), obj.as<userdata_wrapper<const T>>().value() );
-					if constexpr ( detail::Powable<T, int64_t> )
+					if constexpr ( detail::Powable<T, double> )
 						if ( obj.is<double>() )
-							return pow( a.value(), obj.as<int64_t>() );
+							return pow( a.value(), obj.as<double>() );
 
 					if constexpr ( detail::Powable<T, T> && detail::Powable<T, double> )
 						type_error( obj.state(), obj.slot(), "%s or number", userdata_name<T>().data() );
