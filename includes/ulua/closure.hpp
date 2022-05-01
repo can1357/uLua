@@ -6,6 +6,7 @@
 namespace ulua
 {
 	struct push_count { int n; };
+	template<> struct type_traits<push_count> { ULUA_INLINE static int push( lua_State* L, push_count value ) { return value.n; } };
 
 	namespace detail
 	{

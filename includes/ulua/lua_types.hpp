@@ -435,7 +435,7 @@ namespace ulua
 		ULUA_INLINE static int push( lua_State* L, Opt&& value )
 		{
 			if ( !value ) return type_traits<nil_t>::push( L, nil );
-			else          return type_traits<typename Opt::value_type>::push( L, std::forward<Opt>( value ).value() );
+			else          return type_traits<typename std::remove_cvref_t<Opt>::value_type>::push( L, std::forward<Opt>( value ).value() );
 		}
 		ULUA_INLINE static bool check( lua_State* L, int& idx )
 		{
