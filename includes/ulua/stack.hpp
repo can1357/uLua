@@ -372,8 +372,15 @@ namespace ulua::stack
 			{
 				if ( call_meta( L, i, meta::tostring ) || get_meta( L, i, meta::name ) )
 					return pop<std::string>( L );
-				else
-					return type_name( t );
+
+#if ULUA_ACCEL
+				auto* tv = accel::ref( L, i );
+				char buffer[ 64 ];
+				size_t len = snprintf( buffer, std::size( buffer ), "%s @ %p", type_name(t), gcval(tv));
+				return std::string{ buffer, len };
+#else
+				return type_name( t );
+#endif
 			}
 		}
 	}
