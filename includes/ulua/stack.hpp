@@ -339,21 +339,6 @@ namespace ulua::stack
 	//
 	inline int push_closure( lua_State* L, cfunction_t fn, slot upvalue_count = 0 )
 	{
-		if ( !upvalue_count )
-		{
-			lua_pushlightuserdata( L, fn );
-			lua_rawget( L, LUA_REGISTRYINDEX );
-			if ( check<cfunction_t>( L, top_t{} ) ) [[likely]]
-				return 1;
-			pop_n( L, 1 );
-
-			lua_pushcclosure( L, fn, 0 );
-			lua_pushlightuserdata( L, fn );
-			copy( L, -2 );
-			lua_rawset( L, LUA_REGISTRYINDEX );
-			return 1;
-		}
-
 		lua_pushcclosure( L, fn, upvalue_count );
 		return 1;
 	}

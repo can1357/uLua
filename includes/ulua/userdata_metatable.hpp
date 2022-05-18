@@ -50,6 +50,27 @@ namespace ulua
 		template<typename T, typename O> concept Modable = requires( const T& v, const O& v2 ) { v% v2; };
 		template<typename T, typename O> concept Powable = requires( const T & v, const O & v2 ) { pow( v, v2 ); };
 		template<typename T, typename O> concept Xorable = requires( const T& v, const O& v2 ) { v ^ v2; };
+
+		static void push_const_code( lua_State* L, const char* code )
+		{
+			lua_pushlightuserdata( L, ( void* ) &code[ 0 ] );
+			lua_rawget( L, LUA_REGISTRYINDEX );
+			if ( !stack::type_check<value_type::function>( L, stack::top_t{} ) ) [[unlikely]]
+			{
+				stack::pop_n( L, 1 );
+				luaL_loadbuffer( L, code, strlen( code ), "internal" );
+				lua_call( L, 0, 1 );
+				lua_pushlightuserdata( L, ( void* ) &code[ 0 ] );
+				stack::copy( L, -2 );
+				lua_rawset( L, LUA_REGISTRYINDEX );
+			}
+		}
+		template<typename... Tx>
+		static void run_through( lua_State* L, const char* code, Tx&&... args )
+		{
+			push_const_code( L, code );
+			lua_call( L, stack::push( L, std::forward_as_tuple( std::forward<Tx>( args )... ) ), 0 );
+		}
 	};
 
 	// Readonly tag.
@@ -67,52 +88,98 @@ namespace ulua
 	};
 	template<auto Value> static constexpr auto property( meta field ) { return metaproperty_descriptor{ field, constant<Value>() }; }
 	template<typename T> static constexpr auto property( meta field, T&& value ) { return metaproperty_descriptor<T>{ field, std::forward<T>( value ) }; }
+	
+	struct constant_getter_tag {};
+	template<typename T>
+	struct constant_getter : constant_getter_tag
+	{
+		T value;
+		constexpr constant_getter( T&& value ) : value( std::forward<T>( value ) ) {}
+	};
+	template<typename T> constant_getter( T&& )->constant_getter<T>;
+
+	struct bytecode_property
+	{
+		const char* code;
+	};
 
 	template<typename G, typename S>
 	struct member_descriptor
 	{
 		G getter;
 		S setter;
-		std::string_view name;
-		inline constexpr member_descriptor( std::string_view name, G&& getter, S&& setter ) : getter( std::forward<G>( getter ) ), setter( std::forward<S>( setter ) ), name( name ) {}
+		const char* name;
+		inline constexpr member_descriptor( const char* name, G&& getter, S&& setter ) : getter( std::forward<G>( getter ) ), setter( std::forward<S>( setter ) ), name( name ) {}
 
-		template<typename T>
-		inline void get( lua_State* L, stack::slot key_slot, const T* value ) const
+		inline void write_getter( stack_table& tbl ) const
 		{
-			if constexpr ( !std::is_same_v<std::decay_t<G>, std::nullopt_t> )
-				stack::push( L, getter( L, value ) );
+			if constexpr ( !std::is_same_v<G, nil_t> )
+			{
+				if constexpr ( std::is_base_of_v<constant_getter_tag, G> )
+				{
+					detail::run_through( tbl.state(), "return function(tbl, key, value) tbl[key] = function() return value end end", tbl, name, getter.value );
+				}
+				else if constexpr ( std::is_same_v<bytecode_property, G> )
+				{
+					detail::push_const_code( tbl.state(), getter.code );
+					lua_setfield( tbl.state(), tbl.slot(), name );
+				}
+				else
+				{
+					tbl[ name ] = getter;
+				}
+			}
 			else
-				error( L, "getting write-only property" );
+			{
+				detail::run_through( tbl.state(), "return function(tbl, key, x) tbl[key] = function() error(x, 2) end end", tbl, name, "getting write-only property" );
+			}
 		}
-
-		template<typename T>
-		inline void set( lua_State* L, stack::slot key_slot, T* value, const stack_object& ref ) const
+		inline void write_setter( stack_table& tbl ) const
 		{
-			if constexpr ( !std::is_same_v<std::decay_t<S>, std::nullopt_t> )
-				setter( L, value, ref );
+			if constexpr ( std::is_same_v<bytecode_property, S> )
+			{
+				detail::push_const_code( tbl.state(), setter.code );
+				lua_setfield( tbl.state(), tbl.slot(), name );
+			}
+			else if constexpr ( !std::is_same_v<S, nil_t> )
+			{
+				tbl[ name ] = setter;
+			}
 			else
-				error( L, "setting read-only property" );
+			{
+				detail::run_through( tbl.state(), "return function(tbl, key, x) tbl[key] = function() error(x, 2) end end", tbl, name, "setting read-only property" );
+			}
 		}
 	};
-	template<typename G, typename S> member_descriptor( std::string_view, G&&, S&& )->member_descriptor<G, S>;
+	template<typename G, typename S> member_descriptor( const char*, G&&, S&& )->member_descriptor<G, S>;
 
+	template<typename T>
+	static constexpr auto static_member( const char* name, T&& value )
+	{
+		return member_descriptor{
+			name,
+			constant_getter{ std::forward<T>( value ) },
+			nil
+		};
+	}
 	template<auto Field>
-	static constexpr auto member( std::string_view name )
+	static constexpr auto member( const char* name )
 	{
 		if constexpr ( detail::is_member_function_v<decltype( Field )> )
 		{
 			return member_descriptor{
 				name,
-				[ ] ( lua_State*, auto* ) { return constant<Field>(); },
-				std::nullopt
+				constant_getter{ constant<Field>() },
+				nil
 			};
 		}
 		else if constexpr ( detail::is_member_field_v<decltype( Field )> )
 		{
+			using T = detail::member_field_class_t<Field>;
 			return member_descriptor{
 				name,
-				[ ] ( lua_State*, auto* p ) -> decltype( auto ) { return p->*Field; },
-				[ ] ( lua_State*, auto* p, const stack_object& value ) { p->*Field = (std::decay_t<decltype( p->*Field )>) value; }
+				[ ] ( lua_State*, T* p ) -> decltype( auto ) { return p->*Field; },
+				[ ] ( lua_State*, T* p, const stack_object& value ) { p->*Field = (std::decay_t<decltype( p->*Field )>) value; }
 			};
 		}
 		else
@@ -120,76 +187,25 @@ namespace ulua
 			static_assert( sizeof( Field ) == -1, "Invalid constant member type." );
 		}
 	}
-	template<typename T>
-	static constexpr auto static_member( std::string_view name, T&& value ) 
-	{
-		using V = std::decay_t<T>;
-		if constexpr ( std::is_empty_v<V> )
-		{
-			return member_descriptor{
-				name,
-				[ ] ( lua_State*, auto* ) { return V{}; },
-				std::nullopt
-			};
-		}
-		else
-		{
-			return member_descriptor{
-				name,
-				[ v = std::forward<T>( value ) ] ( lua_State*, auto* ) { return v; },
-				std::nullopt
-			};
-		}
-	}
 	template<auto Field>
-	static constexpr auto member( std::string_view name, readonly_t )
+	static constexpr auto member( const char* name, readonly_t )
 	{
+		using T = detail::member_field_class_t<Field>;
 		return member_descriptor{
 			name,
-			[ ] ( lua_State*, auto* p ) -> decltype( auto ) { return p->*Field; },
-			std::nullopt
+			[ ] ( lua_State*, T* p ) -> decltype( auto ) { return p->*Field; },
+			nil
 		};
 	}
-
-	namespace impl
-	{
-		struct any_ref_t
-		{
-			template<typename T>
-			constexpr operator T&() const noexcept;
-		};
-
-		template<typename G>
-		inline constexpr auto make_getter( G&& g )
-		{
-			if constexpr ( std::is_member_function_pointer_v<std::decay_t<G>> )
-				return [ g = std::forward<G>( g ) ]( lua_State*, auto* p ) -> decltype( auto ) { return ( p->*g )(); };
-			else if constexpr( detail::Callable<G, lua_State*, any_ref_t>  )
-				return [ g = std::forward<G>( g ) ]( lua_State* L, auto* p ) -> decltype( auto ) { return g( L, *p ); };
-			else
-				return [ g = std::forward<G>( g ) ]( lua_State*, auto* p ) -> decltype( auto ) { return g( *p ); };
-		}
-		template<typename S>
-		inline constexpr auto make_setter( S&& s )
-		{
-			if constexpr ( std::is_member_function_pointer_v<std::decay_t<S>> )
-				return [ s = std::forward<S>( s ) ]( lua_State*, auto* p, const stack_object& value ) -> decltype( auto ) { return ( p->*s )( value ); };
-			else if constexpr ( detail::Callable<S, lua_State*, any_ref_t, const stack_object&> )
-				return [ s = std::forward<S>( s ) ]( lua_State* L, auto* p, const stack_object& value ) -> decltype( auto ) { return s( L, *p, value ); };
-			else
-				return [ s = std::forward<S>( s ) ]( lua_State*, auto* p, const stack_object& value ) -> decltype( auto ) { return s( *p, value ); };
-		}
-	};
-
 	template<typename G>
-	static constexpr auto property( std::string_view name, G&& getter )
+	static constexpr auto property( const char* name, G&& getter )
 	{
-		return member_descriptor{ name, impl::make_getter<G>( std::forward<G>( getter ) ), std::nullopt };
+		return member_descriptor{ name, std::forward<G>( getter ), nil };
 	}
 	template<typename G, typename S>
-	static constexpr auto property( std::string_view name, G&& getter, S&& setter )
+	static constexpr auto property( const char* name, G&& getter, S&& setter )
 	{
-		return member_descriptor{ name, impl::make_getter<G>( std::forward<G>( getter ) ), impl::make_setter<S>( std::forward<S>( setter ) ) };
+		return member_descriptor{ name, std::forward<G>( getter ), std::forward<S>( setter ) };
 	}
 
 	// Define the auto generated userdata metatable.
@@ -197,40 +213,6 @@ namespace ulua
 	template<typename T>
 	struct userdata_metatable
 	{
-		// Compute the maximum field length for the swith case generation.
-		//
-		static constexpr size_t max_field_length = [ ] ()
-		{
-			size_t n = 0;
-			detail::find_tuple_if( userdata_fields<T>, [ & ] ( const auto& field )
-			{
-				n = std::max<size_t>( field.name.size(), n );
-				return false;
-			} );
-			return n;
-		}();
-
-		// Implement a field finding helper.
-		//
-		template<typename F>
-		static constexpr bool find_field( std::string_view name, F&& fn )
-		{
-			if ( size_t i = name.size(); i <= max_field_length )
-			{
-				return detail::visit_index<max_field_length + 1>( i, [ & ] <size_t N> ( const_tag<N> ) ULUA_INLINE
-				{
-					return detail::find_tuple_if( userdata_fields<T>, [ & ] ( const auto& field )
-					{
-						if ( field.name.size() != N || !detail::const_eq<N>( field.name.data(), name.data() ) )
-							return false;
-						fn( field );
-						return true;
-					} );
-				} );
-			}
-			return false;
-		}
-
 		// Implement a metatable finding helper.
 		//
 		template<meta M, typename F>
@@ -251,10 +233,6 @@ namespace ulua
 		//
 		static push_count index( lua_State* L, const userdata_wrapper<const T>& u, const stack_object& k )
 		{
-			auto field_indexer = [ & ] ( auto& field ) { field.template get<T>( L, k.slot(), u.get() ); };
-			if ( k.is<std::string_view>() && find_field( k.as<std::string_view>(), field_indexer ) )
-				return { 1 };
-
 			if constexpr ( detail::Indexable<T> )
 			{
 				using K = detail::default_key_type_t<T>;
@@ -281,10 +259,6 @@ namespace ulua
 		}
 		static void newindex( lua_State* L, const userdata_wrapper<T>& u, const stack_object& k, const stack_object& v )
 		{
-			auto field_indexer = [ & ] ( auto& field ) { field.template set<T>( L, k.slot(), u.get(), v ); };
-			if ( k.is<std::string_view>() && find_field( k.as<std::string_view>(), field_indexer ) )
-				return;
-
 			if constexpr ( detail::NewIndexable<T> )
 			{
 				using K = detail::default_key_type_t<T>;
@@ -297,6 +271,50 @@ namespace ulua
 				}
 			}
 			error( L, "setting undefined property" );
+		}
+
+
+		static void adjust_index( lua_State* L, stack_table& tbl )
+		{
+			stack::create_table( L );
+			stack_table sindex{ L, stack::top_t{} };
+			std::apply( [ & ] <typename... F> ( const F&... fields ) { ( fields.write_getter( sindex ), ... ); }, userdata_fields<T> );
+
+			detail::run_through( L, R"(
+return function(table, sindex)
+	local dindex = table.__index
+	table.__index = function(self, key)
+		local field = sindex[key]
+if type(field) ~= "function" then print("invalid field:", field) end
+		if field then
+			return field(self)
+		else
+			return dindex(self, key)
+		end
+	end
+end
+)", tbl, sindex );
+		}
+		static void adjust_newindex( lua_State* L, stack_table& tbl )
+		{
+			stack::create_table( L );
+			stack_table sindex{ L, stack::top_t{} };
+			std::apply( [ & ] <typename... F> ( const F&... fields ) { ( fields.write_setter( sindex ), ... ); }, userdata_fields<T> );
+			
+			detail::run_through( L, R"(
+return function(table, sindex)
+	local dindex = table.__newindex
+	table.__newindex = function(self, key, value)
+		local field = sindex[key]
+if type(field) ~= "function" then print("invalid field:", field) end
+		if field then
+			return field(self, value)
+		else
+			return dindex(self, key, value)
+		end
+	end
+end
+)", tbl, sindex );
 		}
 
 		// String conversation of the object.
@@ -356,12 +374,17 @@ namespace ulua
 		//
 		ULUA_COLD static void setup( lua_State* L, stack::slot i )
 		{
-			// Set all the always existing properties.
+			// Set the constant properties.
 			//
 			stack_table metatable{ L, i, weak_t{} };
+			set_meta<meta::call>( metatable );
+
+			if ( !set_meta<meta::index>( metatable ) )    metatable[ meta::index ] = constant<&index>();
+			if ( !set_meta<meta::newindex>( metatable ) ) metatable[ meta::newindex ] = constant<&newindex>();
+			adjust_index( L, metatable );
+			adjust_newindex( L, metatable );
+			
 			if ( !set_meta<meta::metatable>( metatable ) ) metatable[ meta::metatable ] = 0;
-			if ( !set_meta<meta::newindex>( metatable ) )  metatable[ meta::newindex ] = constant<&newindex>();
-			if ( !set_meta<meta::index>( metatable ) )     metatable[ meta::index ] = constant<&index>();
 			if ( !set_meta<meta::tostring>( metatable ) )  metatable[ meta::tostring ] = constant<&tostring>();
 			if ( !set_meta<meta::eq>( metatable ) )        metatable[ meta::eq ] = constant<&eq>();
 			if ( !set_meta<meta::lt>( metatable ) )        metatable[ meta::lt ] = constant<&lt>();
@@ -370,11 +393,6 @@ namespace ulua
 			if ( !set_meta<meta::gc>( metatable ) && !std::is_trivially_destructible_v<T> )        
 				metatable[ meta::gc ] = constant<&gc>();
 			
-			// Propagate call property.
-			//
-			if constexpr ( has_meta<meta::call>() )
-				set_meta<meta::call>( metatable );
-
 			// If the object has a length/size getters or is iterable, define the function.
 			//
 			if constexpr ( has_meta<meta::len>() )

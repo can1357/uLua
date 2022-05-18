@@ -113,19 +113,24 @@ namespace ulua
 		// Checks if the type is a member function or not.
 		//
 		template<typename T>                                 struct is_member_function { static constexpr bool value = false; };
-		template<typename C, typename R, typename... Tx>     struct is_member_function<R(C::*)(Tx...)>             { static constexpr bool value = true; };
-		template<typename C, typename R, typename... Tx>     struct is_member_function<R(C::*)(Tx..., ...)>        { static constexpr bool value = true; };
-		template<typename C, typename R, typename... Tx>     struct is_member_function<R(C::*)(Tx...) const>       { static constexpr bool value = true; };
-		template<typename C, typename R, typename... Tx>     struct is_member_function<R(C::*)(Tx..., ...)  const> { static constexpr bool value = true; };
+		template<typename C, typename R, typename... Tx>     struct is_member_function<R(C::*)(Tx...)>             { static constexpr bool value = true; using type = C; };
+		template<typename C, typename R, typename... Tx>     struct is_member_function<R(C::*)(Tx..., ...)>        { static constexpr bool value = true; using type = C; };
+		template<typename C, typename R, typename... Tx>     struct is_member_function<R(C::*)(Tx...) const>       { static constexpr bool value = true; using type = C; };
+		template<typename C, typename R, typename... Tx>     struct is_member_function<R(C::*)(Tx..., ...)  const> { static constexpr bool value = true; using type = C; };
 		template<typename T>
 		static constexpr bool is_member_function_v = is_member_function<remove_noexcept_t<T>>::value;
-	
+		template<auto F>
+		using member_function_class_t = typename is_member_function<remove_noexcept_t<decltype( F )>>::type;
+
+
 		// Checks if the type is a member field or not.
 		//
 		template<typename T>                                 struct is_member_field { static constexpr bool value = false; };
-		template<typename C, typename T>                     struct is_member_field<T C::*> { static constexpr bool value = true; };
+		template<typename C, typename T>                     struct is_member_field<T C::*> { static constexpr bool value = true; using type = C; };
 		template<typename T>
 		static constexpr bool is_member_field_v = is_member_field<T>::value;
+		template<auto F>
+		using member_field_class_t = typename is_member_field<decltype( F )>::type;
 
 		// Callable check.
 		//
@@ -270,9 +275,11 @@ namespace ulua
 #if defined(__GNUC__) || defined(__clang__)
 		#define ULUA_INLINE __attribute__((always_inline))
 		#define ULUA_COLD [[gnu::noinline, gnu::cold]]
+		#define ULUA_CONST [[gnu::const]]
 #elif _MSC_VER
 		#define ULUA_INLINE [[msvc::forceinline]]
 		#define ULUA_COLD __declspec(noinine)
+		#define ULUA_CONST
 #endif
 	
 		inline void breakpoint()
