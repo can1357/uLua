@@ -283,9 +283,10 @@ namespace ulua
 			detail::run_through( L, R"(
 return function(table, sindex)
 	local dindex = table.__index
+	table.__indexref = sindex
 	table.__index = function(self, key)
 		local field = sindex[key]
-		if type(field) == "function" then
+		if field then
 			return field(self)
 		else
 			return dindex(self, key)
@@ -303,9 +304,10 @@ end
 			detail::run_through( L, R"(
 return function(table, sindex)
 	local dindex = table.__newindex
+	table.__newindexref = sindex
 	table.__newindex = function(self, key, value)
 		local field = sindex[key]
-		if type(field) == "function" then
+		if field then
 			return field(self, value)
 		else
 			return dindex(self, key, value)
