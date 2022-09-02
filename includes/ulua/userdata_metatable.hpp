@@ -285,8 +285,7 @@ return function(table, sindex)
 	local dindex = table.__index
 	table.__index = function(self, key)
 		local field = sindex[key]
-if type(field) ~= "function" then print("invalid field:", field) end
-		if field then
+		if type(field) == "function" then
 			return field(self)
 		else
 			return dindex(self, key)
@@ -306,8 +305,7 @@ return function(table, sindex)
 	local dindex = table.__newindex
 	table.__newindex = function(self, key, value)
 		local field = sindex[key]
-if type(field) ~= "function" then print("invalid field:", field) end
-		if field then
+		if type(field) == "function" then
 			return field(self, value)
 		else
 			return dindex(self, key, value)
