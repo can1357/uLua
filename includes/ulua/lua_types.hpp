@@ -246,7 +246,9 @@ namespace ulua
 	template<>
 	struct type_traits<const char*> : type_traits<std::string_view>
 	{
-		ULUA_INLINE static const char* get( lua_State* L, int& idx ) { return luaL_checkstring( L, idx++ ); }
+		ULUA_INLINE static const char* get( lua_State* L, int& idx ) { 
+			return type_traits<std::string_view>::get( L, idx ).data(); // Null terminated.
+		}
 	};
 	template<>
 	struct type_traits<std::string> : type_traits<std::string_view>
