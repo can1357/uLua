@@ -27,15 +27,15 @@ namespace ulua
 		inline size_t size() const { return is_error() ? 0 : size_t( last - first ); }
 		inline bool is_error() const { return retval != 0; }
 		inline bool is_success() const { return retval == 0; }
-		inline void assert() const { if ( is_error() ) ulua::error( L, error() ); }
+		inline void assert() const { if ( is_error() ) ulua::error( L, error().c_str() ); }
 		inline explicit operator bool() const { return is_success(); }
 
 		// Error getter.
 		//
-		inline const char* error() const
+		inline std::string error() const
 		{
 			if ( !is_error() ) return {};
-			else               return stack::get<const char*>( L, first );
+			return stack::to_string( L, first );
 		}
 
 		// Reference getter.
