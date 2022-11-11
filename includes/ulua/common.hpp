@@ -167,14 +167,14 @@ namespace ulua
 
 		// Parameter pack helper.
 		//
-		template<size_t N, typename... Tx>
-		struct nth_parameter;
-		template<size_t N, typename T, typename... Tx>
-		struct nth_parameter<N, T, Tx...> { using type = typename nth_parameter<N - 1, Tx...>::type; };
-		template<typename T, typename... Tx>
-		struct nth_parameter<0, T, Tx...> { using type = T; };
-		template<size_t N, typename... Tx>
-		using nth_parameter_t = typename nth_parameter<N, Tx...>::type;
+#ifndef __clang__
+		template<size_t N, typename... Tx>              struct extract_nth_parameter;
+		template<size_t N, typename T, typename... Tx>  struct extract_nth_parameter<N, T, Tx...> { using type = typename extract_nth_parameter<N - 1, Tx...>::type; };
+		template<typename T, typename... Tx>            struct extract_nth_parameter<0, T, Tx...> { using type = T; };
+		template<size_t N, typename... Tx> using nth_parameter_t = typename extract_nth_parameter<N, Tx...>::type;
+#else
+		template<size_t N, typename... Tx> using nth_parameter_t = __type_pack_element<N, Tx...>;
+#endif
 
 		// Ordering helper.
 		//

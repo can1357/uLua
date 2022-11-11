@@ -411,7 +411,7 @@ namespace ulua
 			std::optional<std::variant<Tx...>> result = {};
 			detail::enum_indices<sizeof...( Tx )>( [ & ] <size_t N> ( const_tag<N> )
 			{
-				using T = std::variant_alternative_t<N, std::variant<Tx...>>;
+				using T = detail::nth_parameter_t<N, Tx...>;
 				if ( result.has_value() ) return;
 
 				int i = idx;
@@ -476,7 +476,7 @@ namespace ulua
 			bool valid = true;
 			detail::enum_indices<sizeof...( Tx )>( [ & ] <size_t N> ( const_tag<N> )
 			{
-				valid = valid && type_traits<std::tuple_element_t<N, std::tuple<Tx...>>>::check( L, idx );
+				valid = valid && type_traits<detail::nth_parameter_t<N, Tx...>>::check( L, idx );
 			} );
 			return valid;
 		}
