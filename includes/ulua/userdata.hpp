@@ -211,9 +211,9 @@ namespace ulua
 	template<typename T>
 	struct user_type_traits<T&&> : user_type_traits<T>
 	{
-		ULUA_INLINE inline static T&& get( lua_State* L, int& idx )
+		ULUA_INLINE inline static T get( lua_State* L, int& idx )
 		{
-			return std::move( user_type_traits<T>::get( L, idx ) );
+			return user_type_traits<T>::get( L, idx );
 		}
 	};
 	template<typename T>
