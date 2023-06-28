@@ -102,9 +102,6 @@ namespace ulua::detail
 		}
 		template<typename T> inline auto operator[]( T&& key ) const& { return at( std::forward<T>( key ) ); }
 		template<typename T> inline auto operator[]( T&& key ) && { return std::move( *this ).at( std::forward<T>( key ) ); }
-		
-		template<typename T> inline auto operator[]( T&& key, raw_t ) const& { return at( std::forward<T>( key ), raw_t{} ); }
-		template<typename T> inline auto operator[]( T&& key, raw_t ) && { return std::move( *this ).at( std::forward<T>( key ), raw_t{} ); }
 	};
 
 	// Lazy invocable.

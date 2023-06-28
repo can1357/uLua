@@ -156,7 +156,8 @@ namespace ulua
 		//
 		inline function_result script_file( const char* path )
 		{
-			auto result = load<stack_reference>( path );
+			auto result = load_file<stack_reference>( path );
+			if ( !result ) return result.decay_to_invocation();
 			return std::move( result )( );
 		}
 		inline function_result script( std::string_view script, const char* name = "" )

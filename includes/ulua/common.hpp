@@ -278,7 +278,7 @@ namespace ulua
 		#define ULUA_CONST [[gnu::const]]
 #elif _MSC_VER
 		#define ULUA_INLINE [[msvc::forceinline]]
-		#define ULUA_COLD __declspec(noinine)
+		#define ULUA_COLD __declspec(noinline)
 		#define ULUA_CONST
 #endif
 	

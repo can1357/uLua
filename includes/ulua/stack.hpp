@@ -1,5 +1,6 @@
 #pragma once
 #include <string>
+#include <span>
 #include "common.hpp"
 #include "lua_types.hpp"
 
@@ -385,7 +386,8 @@ namespace ulua::stack
 	{
 		return lua_dump( L, [ ] ( lua_State* L, const void* p, size_t sz, void* ud )
 		{
-			( *( ( decltype( &cb ) ) ud ) )( std::span<const uint8_t>{ ( const uint8_t* ) p, sz } );
+			std::span<const uint8_t> span{( const uint8_t* ) p, sz};
+			( *( ( decltype( &cb ) ) ud ) )( span );
 			return 0;
 		}, &cb ) == 0;
 	}
