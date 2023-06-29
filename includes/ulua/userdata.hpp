@@ -13,6 +13,8 @@ namespace ulua
 	//
 	template<typename T>
 	struct user_traits : nil_t {};
+	template<typename T> requires requires { typename T::lua_traits; }
+	struct user_traits<T> : T::lua_traits {};
 	template<typename T>
 	concept UserType = ( !std::is_base_of_v<nil_t, user_traits<T>> );
 	template<typename T>
