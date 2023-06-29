@@ -66,12 +66,13 @@ namespace ulua
 
 		inline constexpr bool check_type() const { return true; }
 		inline constexpr bool check_qual() const { return true; }
+		inline constexpr bool check_life() const { return true; }
 
 		inline constexpr T* get() const { return &storage; }
 		inline constexpr operator T*() const { return get(); }
 		inline constexpr T& value() const { return *get(); }
 
-		inline constexpr void destroy() const { std::destroy_at( &storage ); }
+		inline constexpr void destroy() { std::destroy_at( &storage ); }
 	};
 
 	// Replace userdata_by_value.

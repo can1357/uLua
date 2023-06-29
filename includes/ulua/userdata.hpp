@@ -3,6 +3,10 @@
 #include "stack.hpp"
 #include "reference.hpp"
 
+#ifndef ULUA_CONST_CORRECT
+	#define ULUA_CONST_CORRECT 0
+#endif
+
 namespace ulua
 {
 	// User defined type traits.
@@ -118,16 +122,25 @@ namespace ulua
 	{
 		inline static uint32_t make_tag() { return ( uint32_t ) ( uint64_t ) &__userdata_tag<std::remove_const_t<T>>; }
 
-		T*        pointer;
-		uint64_t  tag          : 32;
-		uint64_t  is_const     : 1;
-		uint64_t  storage_type : 1;
+		T*        pointer = nullptr;
+		uint64_t  tag          : 32 = make_tag();
+#if ULUA_CONST_CORRECT
+		uint64_t  is_const     : 1 =  std::is_const_v<T>;
+#endif
+		uint64_t  storage_type : 1 =  0;
 
-		inline userdata_wrapper() : pointer( nullptr ), tag( 0 ), is_const( 0 ), storage_type( 0 ) {}
-		inline userdata_wrapper( T* pointer, userdata_storage type ) : pointer( pointer ), tag( make_tag() ), is_const( std::is_const_v<T> ), storage_type( ( int64_t ) type ) {}
+		inline userdata_wrapper() : pointer( nullptr ), tag( 0 ) {}
+		inline userdata_wrapper( T* pointer, userdata_storage type ) : pointer( pointer ), storage_type( ( int64_t ) type ) {}
 
 		inline bool check_type() const { return tag == make_tag(); }
+		inline bool check_life() const { return pointer != nullptr; }
+#if ULUA_CONST_CORRECT
 		inline bool check_qual() const { return std::is_const_v<T> || !is_const; }
+#else
+		inline constexpr bool check_qual() const { return true; }
+#endif
+		inline void retire() { pointer = nullptr; }
+
 		inline operator T*() const { return pointer; }
 		inline T* get() const { return pointer; }
 		inline T& value() const { return *pointer; }
@@ -136,7 +149,7 @@ namespace ulua
 		template<typename S> 
 		inline S* store() const { return ( S* ) ( this + 1 ); }
 
-		inline void destroy() const
+		inline void destroy()
 		{
 			switch ( storage() )
 			{
@@ -174,12 +187,15 @@ namespace ulua
 		{
 			int i = idx;
 			auto wrapper = ( userdata_wrapper<T>* ) type_traits<userdata_value>::get( L, idx ).pointer;
-
 			constexpr auto udname = userdata_name<std::remove_const_t<T>>().data();
 			if ( !wrapper || !wrapper->check_type() ) [[unlikely]]
 				type_error( L, i, udname );
+#if ULUA_CONST_CORRECT
 			if ( !wrapper->check_qual() ) [[unlikely]]
-				arg_error( L, i, "expected mutable '%s', got 'const %s'", udname, udname );
+				arg_error( L, i, "expired mutable, got constant %s", udname );
+#endif
+			if ( !wrapper->check_life() ) [[unlikely]]
+				arg_error( L, i, "received expired %s", udname );
 			return *wrapper;
 		}
 	};

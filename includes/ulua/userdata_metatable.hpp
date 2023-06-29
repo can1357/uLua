@@ -368,7 +368,12 @@ end
 		
 		// Garbage collection of the object.
 		//
-		static void gc( const userdata_wrapper<const T>& u ) { u.destroy(); }
+		static void gc( lua_State* L, userdata_value u ) {
+			auto wrapper = ( userdata_wrapper<T>* ) u.pointer;
+			if ( !wrapper || !wrapper->check_type() || !wrapper->check_life() )
+				return;
+			wrapper->destroy();
+		}
 
 		// Sets up the metatable for the first time.
 		//
