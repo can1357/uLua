@@ -329,41 +329,75 @@ end
 
 		// Comparison of the object.
 		//
-		static bool eq( const userdata_wrapper<const T>& a, const stack_object& _b )
+		static bool eq( userdata_value _a, const stack_object& _b )
 		{
-			if ( !_b.is<const T>() ) return false;
-			
-			const T* b = _b.as<const T*>();
-			if constexpr ( detail::EqComparable<T> )
-				return a.value() == *b;
-			else
-				return a.get() == b;
+			if ( !_b.is<userdata_value>() ) return false;
+			auto w1 = ( userdata_wrapper<const T>* ) _a.pointer;
+			auto w2 = ( userdata_wrapper<const T>* ) _b.as<userdata_value>().pointer;
+			if ( w1 == w2 ) return true;
+
+			if ( !w1 || !w1->check_type() || !w2 || !w2->check_type() )
+				return false;
+			if ( w1->get() == w2->get() )
+				return true;
+
+			if constexpr ( detail::EqComparable<const T> ) {
+				if ( !w1->check_life() || !w2->check_life() )
+					return false;
+				return w1->value() == w2->value();
+			} else {
+				return false;
+			}
 		}
-		static bool lt( const userdata_wrapper<const T>& a, const T* b )
+		static bool lt( userdata_value _a, const stack_object& _b )
 		{
-			if ( a.get() == b ) return false;
+			if ( !_b.is<userdata_value>() ) return false;
+			auto w1 = ( userdata_wrapper<const T>* ) _a.pointer;
+			auto w2 = ( userdata_wrapper<const T>* ) _b.as<userdata_value>().pointer;
+			if ( w1 == w2 ) return false;
 
-			if constexpr ( detail::LtComparable<T> )
-				return a.value() < *b;
-			else if constexpr ( detail::GeComparable<T> )
-				return !( a.value() >= *b );
-			else if constexpr ( detail::LeComparable<T> && detail::EqComparable<T> )
-				return a.value() != *b && a.value() <= *b;
+			bool w1ok = w1 && w1->check_type() && w1->check_life();
+			bool w2ok = w2 && w2->check_type() && w2->check_life();
+			if ( w1ok != w2ok ) return w1ok < w2ok;
+			if ( w1->get() == w2->get() )
+				return false;
 
-			return a.get() < b;
+			auto& a = w1->value();
+			auto& b = w2->value();
+
+			if constexpr ( detail::LtComparable<const T> )
+				return a < b;
+			else if constexpr ( detail::GeComparable<const T> )
+				return !( a >= b );
+			else if constexpr ( detail::LeComparable<const T> && detail::EqComparable<const T> )
+				return a != b && a <= b;
+
+			return uintptr_t( w1->get() ) <=uintptr_t( w2->get() );
 		}
-		static bool le( const userdata_wrapper<const T>& a, const T* b )
+		static bool le( userdata_value _a, const stack_object& _b )
 		{
-			if ( a.get() == b ) return true;
+			if ( !_b.is<userdata_value>() ) return false;
+			auto w1 = ( userdata_wrapper<const T>* ) _a.pointer;
+			auto w2 = ( userdata_wrapper<const T>* ) _b.as<userdata_value>().pointer;
+			if ( w1 == w2 ) return true;
 
-			if constexpr ( detail::LeComparable<T> )
-				return a.value() <= *b;
-			else if constexpr ( detail::GtComparable<T> )
-				return !( a.value() > *b );
-			else if constexpr ( detail::LtComparable<T> && detail::EqComparable<T> )
-				return a.value() == *b || a.value() < *b;
-			
-			return a.get() < b;
+			bool w1ok = w1 && w1->check_type() && w1->check_life();
+			bool w2ok = w2 && w2->check_type() && w2->check_life();
+			if ( w1ok != w2ok ) return w1ok <= w2ok;
+			if ( w1->get() == w2->get() )
+				return true;
+
+			auto& a = w1->value();
+			auto& b = w2->value();
+
+			if constexpr ( detail::LeComparable<const T> )
+				return a <= b;
+			else if constexpr ( detail::GtComparable<const T> )
+				return !( a > b );
+			else if constexpr ( detail::LtComparable<const T> && detail::EqComparable<const T> )
+				return a == b || a < b;
+
+			return uintptr_t( w1->get() ) <= uintptr_t( w2->get() );
 		}
 		
 		// Garbage collection of the object.

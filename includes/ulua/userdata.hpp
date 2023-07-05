@@ -153,6 +153,7 @@ namespace ulua
 
 		inline void destroy()
 		{
+			pointer = nullptr;
 			switch ( storage() )
 			{
 				case userdata_storage::pointer:    return;
