@@ -421,7 +421,7 @@ namespace ulua::stack
 			printf( "[!] Remove from non-top detected while removing (%d, %d)!\n", i, i + int( n ) - 1 );
 			dump_stack( L );
 #endif
-			detail::breakpoint();
+			detail::trap();
 		}
 		pop_n( L, n );
 	}

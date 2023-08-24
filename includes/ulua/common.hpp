@@ -306,6 +306,15 @@ namespace ulua
 			assume_true( false );
 #endif
 		}
+		inline void trap [[noreturn]] ()
+		{
+#if __has_builtin(__builtin_trap)
+			__builtin_trap();
+#elif defined(_MSC_VER)
+			__debugbreak();
+#endif
+			assume_unreachable();
+		}
 		template<size_t N>
 		inline bool const_eq( const char* a, const char* b )
 		{

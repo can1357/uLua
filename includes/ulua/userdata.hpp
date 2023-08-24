@@ -183,13 +183,13 @@ namespace ulua
 		// No pusher.
 		ULUA_INLINE inline static bool check( lua_State* L, int& idx )
 		{ 
-			auto wrapper = ( userdata_wrapper<T>* ) type_traits<userdata_value>::get( L, idx ).pointer;
+			auto wrapper = std::launder( ( userdata_wrapper<T>* ) type_traits<userdata_value>::get( L, idx ).pointer );
 			return wrapper && wrapper->check_type() && wrapper->check_qual();
 		}
 		ULUA_INLINE inline static userdata_wrapper<T>& get( lua_State* L, int& idx )
 		{
 			int i = idx;
-			auto wrapper = ( userdata_wrapper<T>* ) type_traits<userdata_value>::get( L, idx ).pointer;
+			auto wrapper = std::launder( ( userdata_wrapper<T>* ) type_traits<userdata_value>::get( L, idx ).pointer );
 			constexpr auto udname = userdata_name<std::remove_const_t<T>>().data();
 			if ( !wrapper || !wrapper->check_type() ) [[unlikely]]
 				type_error( L, i, udname );

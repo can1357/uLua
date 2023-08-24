@@ -172,7 +172,7 @@ namespace ulua
 			if ( !tviscdata( tv ) )
 				type_error( L, idx - 1, userdata_name<std::remove_const_t<T>>().data() );
 			auto* cd = cdataV( tv );
-			auto* wr = ( userdata_wrapper<T>* ) cdataptr( cd );
+			auto* wr = std::launder( ( userdata_wrapper<T>* ) cdataptr( cd ) );
 
 #if ULUA_CTYPE_VALIDATED
 			if ( cd->ctypeid != cache::fetch( L ) )
