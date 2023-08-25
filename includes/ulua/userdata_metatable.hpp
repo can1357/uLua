@@ -279,42 +279,16 @@ namespace ulua
 			stack::create_table( L );
 			stack_table sindex{ L, stack::top_t{} };
 			std::apply( [ & ] <typename... F> ( const F&... fields ) { ( fields.write_getter( sindex ), ... ); }, userdata_fields<T> );
-
-			detail::run_through( L, R"(
-return function(table, sindex)
-	local dindex = table.__index
-	table.__indexref = sindex
-	table.__index = function(self, key)
-		local field = sindex[key]
-		if field then
-			return field(self)
-		else
-			return dindex(self, key)
-		end
-	end
-end
-)", tbl, sindex );
+			sindex.push();
+			lua_setfield( tbl.state(), tbl.slot(), "__indexref" );
 		}
 		static void adjust_newindex( lua_State* L, stack_table& tbl )
 		{
 			stack::create_table( L );
 			stack_table sindex{ L, stack::top_t{} };
 			std::apply( [ & ] <typename... F> ( const F&... fields ) { ( fields.write_setter( sindex ), ... ); }, userdata_fields<T> );
-			
-			detail::run_through( L, R"(
-return function(table, sindex)
-	local dindex = table.__newindex
-	table.__newindexref = sindex
-	table.__newindex = function(self, key, value)
-		local field = sindex[key]
-		if field then
-			return field(self, value)
-		else
-			return dindex(self, key, value)
-		end
-	end
-end
-)", tbl, sindex );
+			sindex.push();
+			lua_setfield( tbl.state(), tbl.slot(), "__newindexref" );
 		}
 
 		// String conversation of the object.
@@ -418,10 +392,78 @@ end
 			stack_table metatable{ L, i, weak_t{} };
 			set_meta<meta::call>( metatable );
 
-			if ( !set_meta<meta::index>( metatable ) )    metatable[ meta::index ] = constant<&index>();
-			if ( !set_meta<meta::newindex>( metatable ) ) metatable[ meta::newindex ] = constant<&newindex>();
+			if ( !set_meta<meta::index>( metatable ) ) {
+				if constexpr ( detail::Indexable<T> || detail::FindIndexable<T> )
+					metatable[ meta::index ] = constant<&index>();
+			}
+			if ( !set_meta<meta::newindex>( metatable ) ) {
+				if constexpr ( detail::NewIndexable<T> )
+					metatable[ meta::newindex ] = constant<&newindex>();
+			}
 			adjust_index( L, metatable );
 			adjust_newindex( L, metatable );
+
+			detail::run_through( L, R"(
+return function(table)
+	do
+		local dnindex = table.__newindex
+		local snindex = table.__newindexref
+		if type(dnindex) == "function" then
+			table.__newindex = function(self, key, value)
+				local field = snindex[key]
+				if field then
+					field(self, value)
+				else
+					dnindex(self, key, value)
+				end
+			end
+		elseif dnindex then
+			table.__newindex = function(self, key, value)
+				local field = snindex[key]
+				if field then
+					field(self, value)
+				else
+					dnindex[key] = value
+				end
+			end
+		else
+			table.__newindex = function(self, key, value)
+				local field = snindex[key]
+				return field(self, value)
+			end
+		end
+	end
+
+	do
+		local dindex = table.__index
+		local sindex = table.__indexref
+		if type(dindex) == "function" then
+			table.__index = function(self, key)
+				local field = sindex[key]
+				if field then
+					return field(self)
+				else
+					return dindex(self, key)
+				end
+			end
+		elseif dindex then
+			table.__index = function(self, key)
+				local field = sindex[key]
+				if field then
+					return field(self)
+				else
+					return dindex[key]
+				end
+			end
+		else
+			table.__index = function(self, key)
+				local field = sindex[key]
+				return field and field(self)
+			end
+		end
+	end
+end
+)", metatable );
 			
 			if ( !set_meta<meta::metatable>( metatable ) ) metatable[ meta::metatable ] = 0;
 			if ( !set_meta<meta::tostring>( metatable ) )  metatable[ meta::tostring ] = constant<&tostring>();
