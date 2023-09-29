@@ -53,6 +53,18 @@ namespace ulua
 			constexpr wrapper& operator=( const wrapper& ) noexcept = default;
 			inline constexpr operator T() const { return value; }
 		};
+		using u64 = wrapper<uint64_t>;
+		using u32 = wrapper<uint32_t>;
+		using u16 = wrapper<uint16_t>;
+		using u8 =  wrapper<uint8_t>;
+		using i64 = wrapper<int64_t>;
+		using i32 = wrapper<int32_t>;
+		using i16 = wrapper<int16_t>;
+		using i8 =  wrapper<int8_t>;
+		using i1 =  wrapper<bool>;
+		using f32 = wrapper<float>;
+		using f64 = wrapper<double>;
+
 		template<IntrinsicType T>
 		inline static constexpr wrapper<T> wrap( const T& value ) {
 			return wrapper<T>{ value };
