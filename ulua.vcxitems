@@ -1,4 +1,4 @@
-﻿<?xml version="1.0" encoding="utf-8"?>
+<?xml version="1.0" encoding="utf-8"?>
 <Project xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
   <PropertyGroup Label="Globals">
     <MSBuildAllProjects Condition="'$(MSBuildVersion)' == '' Or '$(MSBuildVersion)' &lt; '16.0'">$(MSBuildAllProjects);$(MSBuildThisFileFullPath)</MSBuildAllProjects>
@@ -8,29 +8,29 @@
   </PropertyGroup>
   <ItemDefinitionGroup>
     <ClCompile>
-      <AdditionalIncludeDirectories>%(AdditionalIncludeDirectories);$(MSBuildThisFileDirectory)includes</AdditionalIncludeDirectories>
+      <AdditionalIncludeDirectories>%(AdditionalIncludeDirectories);$(MSBuildThisFileDirectory)include</AdditionalIncludeDirectories>
     </ClCompile>
   </ItemDefinitionGroup>
   <ItemGroup>
     <ProjectCapability Include="SourceItemsFromImports" />
   </ItemGroup>
   <ItemGroup>
-    <ClInclude Include="$(MSBuildThisFileDirectory)includes\ulua.hpp" />
-    <ClInclude Include="$(MSBuildThisFileDirectory)includes\ulua\closure.hpp" />
-    <ClInclude Include="$(MSBuildThisFileDirectory)includes\ulua\coroutine.hpp" />
-    <ClInclude Include="$(MSBuildThisFileDirectory)includes\ulua\environment.hpp" />
-    <ClInclude Include="$(MSBuildThisFileDirectory)includes\ulua\ffi.hpp" />
-    <ClInclude Include="$(MSBuildThisFileDirectory)includes\ulua\function.hpp" />
-    <ClInclude Include="$(MSBuildThisFileDirectory)includes\ulua\lua_api.hpp" />
-    <ClInclude Include="$(MSBuildThisFileDirectory)includes\ulua\named_arguments.hpp" />
-    <ClInclude Include="$(MSBuildThisFileDirectory)includes\ulua\stack.hpp" />
-    <ClInclude Include="$(MSBuildThisFileDirectory)includes\ulua\common.hpp" />
-    <ClInclude Include="$(MSBuildThisFileDirectory)includes\ulua\lazy.hpp" />
-    <ClInclude Include="$(MSBuildThisFileDirectory)includes\ulua\lua_types.hpp" />
-    <ClInclude Include="$(MSBuildThisFileDirectory)includes\ulua\reference.hpp" />
-    <ClInclude Include="$(MSBuildThisFileDirectory)includes\ulua\state.hpp" />
-    <ClInclude Include="$(MSBuildThisFileDirectory)includes\ulua\table.hpp" />
-    <ClInclude Include="$(MSBuildThisFileDirectory)includes\ulua\userdata.hpp" />
-    <ClInclude Include="$(MSBuildThisFileDirectory)includes\ulua\userdata_metatable.hpp" />
+    <ClInclude Include="$(MSBuildThisFileDirectory)include\ulua.hpp" />
+    <ClInclude Include="$(MSBuildThisFileDirectory)include\ulua\closure.hpp" />
+    <ClInclude Include="$(MSBuildThisFileDirectory)include\ulua\coroutine.hpp" />
+    <ClInclude Include="$(MSBuildThisFileDirectory)include\ulua\environment.hpp" />
+    <ClInclude Include="$(MSBuildThisFileDirectory)include\ulua\ffi.hpp" />
+    <ClInclude Include="$(MSBuildThisFileDirectory)include\ulua\function.hpp" />
+    <ClInclude Include="$(MSBuildThisFileDirectory)include\ulua\lua_api.hpp" />
+    <ClInclude Include="$(MSBuildThisFileDirectory)include\ulua\named_arguments.hpp" />
+    <ClInclude Include="$(MSBuildThisFileDirectory)include\ulua\stack.hpp" />
+    <ClInclude Include="$(MSBuildThisFileDirectory)include\ulua\common.hpp" />
+    <ClInclude Include="$(MSBuildThisFileDirectory)include\ulua\lazy.hpp" />
+    <ClInclude Include="$(MSBuildThisFileDirectory)include\ulua\lua_types.hpp" />
+    <ClInclude Include="$(MSBuildThisFileDirectory)include\ulua\reference.hpp" />
+    <ClInclude Include="$(MSBuildThisFileDirectory)include\ulua\state.hpp" />
+    <ClInclude Include="$(MSBuildThisFileDirectory)include\ulua\table.hpp" />
+    <ClInclude Include="$(MSBuildThisFileDirectory)include\ulua\userdata.hpp" />
+    <ClInclude Include="$(MSBuildThisFileDirectory)include\ulua\userdata_metatable.hpp" />
   </ItemGroup>
 </Project>

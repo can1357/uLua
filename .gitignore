@@ -1,0 +1,16 @@
+build/
+cmake-build-*/
+.cache/
+.vs/
+.vscode/
+*.user
+*.suo
+*.sdf
+*.opensdf
+*.db
+.DS_Store
+Thumbs.db
+compile_commands.json
+.tmp/
+
+build-ffi/

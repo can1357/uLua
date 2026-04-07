@@ -1,0 +1,15 @@
+@PACKAGE_INIT@
+
+include(CMakeFindDependencyMacro)
+list(PREPEND CMAKE_MODULE_PATH "${CMAKE_CURRENT_LIST_DIR}")
+
+if("@_ulua_provider@" STREQUAL "LuaJIT")
+  find_dependency(LuaJIT REQUIRED)
+elseif("@_ulua_provider@" STREQUAL "Lua51")
+  find_dependency(Lua51 REQUIRED)
+else()
+  message(FATAL_ERROR "ulua was packaged without a supported Lua provider. Expected LuaJIT or Lua51, got '@_ulua_provider@'.")
+endif()
+
+include("${CMAKE_CURRENT_LIST_DIR}/uluaTargets.cmake")
+check_required_components(ulua)
