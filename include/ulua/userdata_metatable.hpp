@@ -7,6 +7,7 @@
 //
 #include <utility>
 #include <string_view>
+#include <cstring>
 #include "common.hpp"
 #include "userdata.hpp"
 #include "closure.hpp"
